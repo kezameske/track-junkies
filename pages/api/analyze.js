@@ -37,8 +37,8 @@ export default async function handler(req, res) {
       console.warn("Failed to fetch YouTube oEmbed data:", err);
     }
 
-    // Use gemini-2.0-flash-exp (or gemini-1.5-flash)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    // Use gemini-1.5-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Read prompt file
     const promptPath = path.join(process.cwd(), 'prompt.md');
