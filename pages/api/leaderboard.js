@@ -9,6 +9,11 @@ async function getSheetsClient() {
 
   const credentials = JSON.parse(serviceAccount);
   
+  // Basic validation of credentials
+  if (!credentials.client_email || !credentials.private_key) {
+    throw new Error('Invalid Service Account JSON: Missing client_email or private_key');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -71,6 +76,7 @@ export default async function handler(req, res) {
     else if (req.method === 'POST') {
       // APPEND NEW ENTRY
       const { name, car, time, level, url, mods, summary } = req.body;
+      console.log(`[Leaderboard] Appending entry: ${name} in ${car}`);
 
       if (!time) {
         return res.status(400).json({ error: 'Missing lap time' });
@@ -85,12 +91,18 @@ export default async function handler(req, res) {
         },
       });
 
+      console.log(`[Leaderboard] Successfully appended to ${SHEET_NAME}`);
       return res.status(200).json({ message: 'Success' });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
     console.error('Google Sheets API Error:', error);
-    res.status(500).json({ error: 'Failed to sync with leaderboard', details: error.message });
+    // Return explicit error message for debugging
+    res.status(500).json({ 
+      error: 'Failed to sync with leaderboard', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }
