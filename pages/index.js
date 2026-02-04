@@ -492,40 +492,35 @@ export default function Home() {
         p { color: #636e72; font-size: 1.1rem; }
         
         /* Form Styling */
-        .input-group { gap: 1.2rem; }
-        .input-field { 
-          padding: 1rem; 
-          border: 1px solid #dfe6e9; 
-          border-radius: 8px; 
-          font-size: 1rem; 
-          transition: all 0.2s ease;
-          background: #fff;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .input-field:focus { 
-          outline: none; 
-          border-color: #ff3e00; 
-          box-shadow: 0 0 0 3px rgba(255, 62, 0, 0.1); 
-        }
+        .input-group { gap: 1rem; } /* Reduced gap */
         
         .mod-group { 
           border: 1px solid #dfe6e9; 
-          border-radius: 12px; 
-          padding: 1.5rem; 
+          border-radius: 8px; /* Slightly tighter radius */
+          padding: 0.8rem 1rem; /* Compact padding */
           background: #fff;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .mod-group:hover { 
-          border-color: #b2bec3;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-        }
         .mod-group legend { 
-          padding: 0 0.8rem; 
+          padding: 0 0.5rem; 
           font-weight: 700; 
-          color: #2d3436; 
-          text-transform: uppercase; 
-          font-size: 0.8rem; 
-          letter-spacing: 1px;
+          color: #636e72; /* Softer legend color */
+          font-size: 0.75rem; 
+          letter-spacing: 0.5px;
+        }
+        .mods-grid { 
+          display: grid; 
+          grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 Columns for compactness */
+          gap: 0.5rem; /* Tighter gap */
+        }
+        .mod-option { 
+          display: flex; 
+          gap: 0.4rem; 
+          align-items: center; 
+          font-size: 0.85rem; /* Smaller text */
+          white-space: nowrap; /* Prevent wrapping */
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         
         .analyze-btn {
@@ -669,7 +664,7 @@ export default function Home() {
         
         @media (max-width: 768px) {
           .main-grid { grid-template-columns: 1fr; }
-          .mods-grid { grid-template-columns: 1fr; }
+          .mods-grid { grid-template-columns: repeat(2, 1fr); } /* 2 cols on mobile */
         }
       `}</style>
     </div>
