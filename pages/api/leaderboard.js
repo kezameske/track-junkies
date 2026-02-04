@@ -7,7 +7,19 @@ async function getSheetsClient() {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing in environment variables');
   }
 
-  const credentials = JSON.parse(serviceAccount);
+  // Handle potential single quotes in Vercel env var (common copy/paste error)
+  // If it starts with ' and ends with ', strip them.
+  let cleanServiceAccount = serviceAccount.trim();
+  if (cleanServiceAccount.startsWith("'") && cleanServiceAccount.endsWith("'")) {
+    cleanServiceAccount = cleanServiceAccount.slice(1, -1);
+  }
+
+  let credentials;
+  try {
+    credentials = JSON.parse(cleanServiceAccount);
+  } catch (err) {
+    throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON and not wrapped in extra quotes.`);
+  }
   
   // Basic validation of credentials
   if (!credentials.client_email || !credentials.private_key) {
