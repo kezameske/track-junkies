@@ -830,8 +830,11 @@ export default function Home() {
           color: #fff;
           padding: 0.5rem;
           border-radius: 4px;
-          white-space: nowrap;
-          z-index: 10;
+          white-space: normal;
+          min-width: 200px;
+          max-width: 300px;
+          text-align: center;
+          z-index: 100;
           font-size: 0.8rem;
           pointer-events: none;
           box-shadow: 0 2px 5px rgba(0,0,0,0.2);
