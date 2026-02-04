@@ -38,7 +38,9 @@ export default async function handler(req, res) {
     }
 
     // Use gemini-2.0-flash as requested
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const modelId = "gemini-2.0-flash";
+    console.log(`Initializing Gemini model: ${modelId}`);
+    const model = genAI.getGenerativeModel({ model: modelId });
 
     // Read prompt file
     const promptPath = path.join(process.cwd(), 'prompt.md');
