@@ -149,6 +149,14 @@ export default function Home() {
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  const buildTooltip = (modsText, summaryText) => {
+    const base = modsText || '';
+    if (summaryText) {
+      return base + (base ? '\n\n' : '') + 'AI: ' + summaryText;
+    }
+    return base;
+  };
+
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
 
@@ -523,7 +531,7 @@ export default function Home() {
                 {leaderboard.map((entry, i) => (
                   <tr key={i} className={entry.name === userName ? 'highlight' : ''}>
                     <td>{entry.rank}</td>
-                    <td className="time-cell" data-tooltip={entry.mods}>{entry.time}</td>
+                    <td className="time-cell" data-tooltip={buildTooltip(entry.mods, entry.summary)}>{entry.time}</td>
                     <td className="driver-cell">
                       <div className="driver-name">{entry.name}</div>
                       <div className="driver-car">{entry.car}</div>
@@ -542,6 +550,21 @@ export default function Home() {
                 ))}
               </tbody>
             </table>
+            {result && (
+              <div className="leaderboard-summary">
+                <h3>Latest Analysis</h3>
+                <div className="summary-score">Driver Score: {result.driver_level}/100</div>
+                {Array.isArray(result.driving_feedback) ? (
+                  <ul>
+                    {result.driving_feedback.slice(0, 3).map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{result.driving_feedback}</p>
+                )}
+              </div>
+            )}
           </div>
         </aside>
       </main>
@@ -614,7 +637,7 @@ export default function Home() {
           background: #fff;
           border: 1px solid #dfe6e9;
           border-radius: 12px;
-          overflow: hidden;
+          /* overflow: hidden; removed to prevent clipping */
         }
         .setup summary {
           list-style: none;
@@ -787,7 +810,7 @@ export default function Home() {
           padding: 0;
           border-radius: 12px;
           box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-          overflow: hidden;
+          overflow: visible;
         }
         .leaderboard h2 {
           background: #2d3436;
@@ -813,6 +836,30 @@ export default function Home() {
         .video-link:hover { text-decoration: underline; }
         .muted { color: #b2bec3; }
 
+        .leaderboard-summary {
+          padding: 1.25rem 1.5rem 1.5rem;
+          border-top: 1px solid #f1f2f6;
+        }
+        .leaderboard-summary h3 {
+          margin: 0 0 0.75rem;
+          font-size: 1rem;
+          color: #2d3436;
+        }
+        .summary-score {
+          font-weight: 800;
+          color: #ff3e00;
+          margin-bottom: 0.75rem;
+        }
+        .leaderboard-summary ul {
+          margin: 0;
+          padding-left: 1rem;
+        }
+        .leaderboard-summary li {
+          margin-bottom: 0.5rem;
+          font-size: 0.9rem;
+          color: #2d3436;
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .mod-group, .analyze-btn, .result-card, .score-circle, .loading-overlay {
             animation: none !important;
@@ -830,10 +877,10 @@ export default function Home() {
           color: #fff;
           padding: 0.5rem;
           border-radius: 4px;
-          white-space: normal;
+          white-space: pre-wrap;
+          text-align: left;
           min-width: 200px;
-          max-width: 300px;
-          text-align: center;
+          max-width: 400px;
           z-index: 100;
           font-size: 0.8rem;
           pointer-events: none;
