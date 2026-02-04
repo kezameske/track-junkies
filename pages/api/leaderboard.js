@@ -18,7 +18,15 @@ async function getSheetsClient() {
   try {
     credentials = JSON.parse(cleanServiceAccount);
   } catch (err) {
-    throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON and not wrapped in extra quotes.`);
+    // Attempt to recover from common copy-paste errors (like using single quotes for keys)
+    try {
+      // Replace single quoted keys/values with double quotes
+      // This is a naive regex but handles the common case: {'type': 'service_account'}
+      const relaxedJson = cleanServiceAccount.replace(/'/g, '"');
+      credentials = JSON.parse(relaxedJson);
+    } catch (retryErr) {
+      throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON.`);
+    }
   }
   
   // Basic validation of credentials
@@ -32,6 +40,32 @@ async function getSheetsClient() {
   });
 
   return google.sheets({ version: 'v4', auth });
+}
+
+// Helper to parse "MM:SS.ms" into milliseconds
+function parseLapTimeToMs(timeStr) {
+  if (!timeStr) return Infinity;
+  // Remove any non-time chars (keep digits, colon, dot)
+  const cleanStr = timeStr.replace(/[^0-9:.]/g, '');
+  const parts = cleanStr.split(':');
+  
+  try {
+    let minutes = 0;
+    let seconds = 0;
+    
+    if (parts.length === 2) {
+      minutes = parseFloat(parts[0]);
+      seconds = parseFloat(parts[1]);
+    } else if (parts.length === 1) {
+      seconds = parseFloat(parts[0]);
+    } else {
+      return Infinity;
+    }
+    
+    return (minutes * 60 * 1000) + (seconds * 1000);
+  } catch (e) {
+    return Infinity;
+  }
 }
 
 export default async function handler(req, res) {
@@ -70,14 +104,24 @@ export default async function handler(req, res) {
         };
 
         const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
-        // Strategy: Overwrite with latest entry (assume sheet is chronological append)
-        bestRuns.set(key, entry);
+        const currentMs = parseLapTimeToMs(entry.time);
+        
+        // Strategy: Keep the FASTEST entry for this driver+car combo
+        if (!bestRuns.has(key)) {
+          bestRuns.set(key, entry);
+        } else {
+          const existing = bestRuns.get(key);
+          const existingMs = parseLapTimeToMs(existing.time);
+          if (currentMs < existingMs) {
+            bestRuns.set(key, entry);
+          }
+        }
       });
 
       const leaderboard = Array.from(bestRuns.values());
 
-      // Sort by time (simple string sort for MM:SS.ms)
-      leaderboard.sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: true }));
+      // Sort by time (numeric ascending)
+      leaderboard.sort((a, b) => parseLapTimeToMs(a.time) - parseLapTimeToMs(b.time));
 
       // Re-assign ranks after sort
       leaderboard.forEach((entry, i) => entry.rank = i + 1);

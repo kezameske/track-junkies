@@ -56,7 +56,15 @@ export default function Home() {
       .catch(err => console.error("Failed to load leaderboard:", err));
   }, []);
 
-  // Removed localStorage sync since we now use the API
+  // Lock body scroll when loading
+  useEffect(() => {
+    if (loading) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [loading]);
 
   const setSingleChoice = (category, choice) => {
     setMods(prev => {
@@ -209,18 +217,16 @@ export default function Home() {
       if (!leaderboardRes.ok) {
         const errData = await leaderboardRes.json();
         console.warn('Leaderboard update failed:', errData);
-        
         const errorDetail = errData.details ? ` (${errData.details})` : '';
-        throw new Error(`Analysis complete, but failed to save to leaderboard: ${errData.error || leaderboardRes.statusText}${errorDetail}`);
-      }
-      
-      // Reload leaderboard to get fresh sort from backend
-      const refreshRes = await fetch('/api/leaderboard');
-      const freshLeaderboard = await refreshRes.json();
-      if (Array.isArray(freshLeaderboard)) {
-        setLeaderboard(freshLeaderboard);
+        // Set error but do NOT throw, so the user can still see the analysis result
+        setError(`Note: Analysis saved locally but leaderboard sync failed: ${errData.error || leaderboardRes.statusText}${errorDetail}`);
       } else {
-        console.warn('Leaderboard refresh did not return an array:', freshLeaderboard);
+        // Only refresh leaderboard if save succeeded
+        const refreshRes = await fetch('/api/leaderboard');
+        const freshLeaderboard = await refreshRes.json();
+        if (Array.isArray(freshLeaderboard)) {
+          setLeaderboard(freshLeaderboard);
+        }
       }
 
     } catch (err) {
@@ -242,13 +248,25 @@ export default function Home() {
   };
 
   return (
-    <div className="container">
+    <div className={`container ${loading ? 'locked' : ''}`}>
+      {loading && (
+        <div className="loading-overlay" role="status" aria-busy="true">
+          <div className="spinner-container">
+            <div className="spinner"></div>
+            <p>Analyzing lap telemetry...</p>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header>
         <h1>Track Junkies 🏁</h1>
         <p>AI-Powered Lap Time Estimator (Buttonwillow 13CW)</p>
       </header>
 
-      <main className="main-grid">
+      <main className="main-grid" aria-busy={loading} aria-disabled={loading}>
         <section className="left-panel">
           <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleKeyDown} className="input-group">
             <input
@@ -257,6 +275,7 @@ export default function Home() {
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               className="input-field"
+              disabled={loading}
             />
             <input
               type="text"
@@ -265,6 +284,7 @@ export default function Home() {
               onChange={(e) => setCarModel(e.target.value)}
               required
               className="input-field"
+              disabled={loading}
             />
 
             <input
@@ -274,6 +294,7 @@ export default function Home() {
               onChange={(e) => setUrl(e.target.value)}
               required
               className="input-field url-input"
+              disabled={loading}
             />
 
             <input
@@ -282,9 +303,10 @@ export default function Home() {
               value={tire}
               onChange={(e) => setTire(e.target.value)}
               className="input-field"
+              disabled={loading}
             />
 
-            <fieldset className="mod-group">
+            <fieldset className="mod-group" disabled={loading}>
               <legend>Engine</legend>
               <div className="mods-grid">
                 {Object.keys(mods.engine).map((label) => (
@@ -293,6 +315,7 @@ export default function Home() {
                       type="checkbox"
                       checked={mods.engine[label]}
                       onChange={() => toggleEngine(label)}
+                      disabled={loading}
                     />
                     {label}
                   </label>
@@ -300,7 +323,7 @@ export default function Home() {
               </div>
             </fieldset>
 
-            <fieldset className="mod-group">
+            <fieldset className="mod-group" disabled={loading}>
               <legend>ECU</legend>
               <div className="mods-grid">
                 {Object.keys(mods.ecu).map((label) => (
@@ -309,6 +332,7 @@ export default function Home() {
                       type="checkbox"
                       checked={mods.ecu[label]}
                       onChange={() => setSingleChoice('ecu', label)}
+                      disabled={loading}
                     />
                     {label}
                   </label>
@@ -316,7 +340,7 @@ export default function Home() {
               </div>
             </fieldset>
 
-            <fieldset className="mod-group">
+            <fieldset className="mod-group" disabled={loading}>
               <legend>Drivetrain</legend>
               <div className="mods-grid">
                 {Object.keys(mods.drivetrain).map((label) => (
@@ -325,6 +349,7 @@ export default function Home() {
                       type="checkbox"
                       checked={mods.drivetrain[label]}
                       onChange={() => setSingleChoice('drivetrain', label)}
+                      disabled={loading}
                     />
                     {label}
                   </label>
@@ -332,7 +357,7 @@ export default function Home() {
               </div>
             </fieldset>
 
-            <fieldset className="mod-group">
+            <fieldset className="mod-group" disabled={loading}>
               <legend>Suspension</legend>
               <div className="mods-grid">
                 {Object.keys(mods.suspension).map((label) => (
@@ -341,6 +366,7 @@ export default function Home() {
                       type="checkbox"
                       checked={mods.suspension[label]}
                       onChange={() => setSingleChoice('suspension', label)}
+                      disabled={loading}
                     />
                     {label}
                   </label>
@@ -348,7 +374,7 @@ export default function Home() {
               </div>
             </fieldset>
 
-            <fieldset className="mod-group">
+            <fieldset className="mod-group" disabled={loading}>
               <legend>Aero</legend>
               <div className="mods-grid">
                 {Object.keys(mods.aero).map((label) => (
@@ -357,6 +383,7 @@ export default function Home() {
                       type="checkbox"
                       checked={mods.aero[label]}
                       onChange={() => setSingleChoice('aero', label)}
+                      disabled={loading}
                     />
                     {label}
                   </label>
@@ -365,49 +392,26 @@ export default function Home() {
             </fieldset>
 
             <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn">
-              {loading ? (
-                <div className="progress-container">
-                  <span>Analyzing... {progress}%</span>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-                  </div>
-                </div>
-              ) : (
-                'Analyze Lap'
-              )}
+              {loading ? 'Analyzing...' : 'Analyze Lap'}
             </button>
           </form>
 
         {error && <div className="error">{error}</div>}
 
           {result && (
-            <div className="result-card">
-              <h2>Estimated Lap: {result.estimated_lap_time}</h2>
-              <div className="confidence-badge">Confidence: {result.confidence}</div>
-              
-              <div className="grid">
-                <div className="section">
-                  <h3>Timestamps</h3>
-                  <p>Start: {result.timestamps?.lap_start}</p>
-                  <p>End: {result.timestamps?.lap_end}</p>
-                  <p className="reasoning">{result.reasoning_timing}</p>
-                </div>
-                
-                <div className="section">
-                  <h3>Car & Mods</h3>
-                  <p><strong>Model:</strong> {result.car_model}</p>
-                  {Array.isArray(result.detected_mods) && result.detected_mods.length > 0 ? (
-                    <ul>
-                      {result.detected_mods.map((mod, i) => <li key={i}>{mod}</li>)}
-                    </ul>
-                  ) : null}
+            <div className="result-card fade-in">
+              <div className="score-header">
+                <h2>Driver Score</h2>
+                <div className="score-circle">
+                  <span className="score-value">{result.driver_level}</span>
+                  <span className="score-max">/100</span>
                 </div>
               </div>
 
-              <div className="section feedback">
-                <h3>Driving Analysis (Score: {result.driver_level}/100)</h3>
+              <div className="feedback-section">
+                <h3>AI Coach Feedback</h3>
                 {Array.isArray(result.driving_feedback) ? (
-                  <ul>
+                  <ul className="feedback-list">
                     {result.driving_feedback.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
@@ -454,49 +458,181 @@ export default function Home() {
       </main>
 
       <style jsx>{`
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; font-family: system-ui, sans-serif; }
-        header { text-align: center; margin-bottom: 3rem; }
-        h1 { margin: 0; color: #ff3e00; }
-        
-        .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 3rem; align-items: start; }
-        
-        /* Left Panel */
-        .input-group { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
-        .input-field { padding: 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; width: 100%; box-sizing: border-box; }
-        .url-input { border-color: #ff3e00; }
+        /* Visual Redesign Variables */
+        :global(body) {
+          background-color: #f5f7fa;
+          background-image: radial-gradient(#e1e4e8 1px, transparent 1px);
+          background-size: 20px 20px;
+          color: #2d3436;
+        }
 
-        .mod-group { border: 1px solid #eee; border-radius: 8px; padding: 1rem; }
-        .mod-group legend { padding: 0 0.5rem; font-weight: 600; color: #666; }
-        .mods-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
-        .mod-option { display: flex; gap: 0.5rem; align-items: center; font-size: 0.95rem; }
-        button { padding: 1rem 1.5rem; background: #000; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1rem; align-self: center; width: 50%; }
-        button:disabled { opacity: 0.8; cursor: not-allowed; }
+        .container { 
+          max-width: 1200px; 
+          margin: 0 auto; 
+          padding: 2rem; 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
         
-        .progress-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-        .progress-bar { width: 100%; height: 6px; background: #444; border-radius: 3px; overflow: hidden; }
-        .progress-fill { height: 100%; background: #00e676; transition: width 0.3s ease; }
+        header { 
+          text-align: center; 
+          margin-bottom: 3rem; 
+          padding-bottom: 2rem;
+          border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
         
-        .error { color: red; padding: 1rem; background: #fff0f0; border-radius: 4px; }
-        .result-card { border: 1px solid #eee; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
-        .confidence-badge { display: inline-block; padding: 0.2rem 0.6rem; background: #e0f7fa; color: #006064; border-radius: 12px; font-size: 0.85rem; }
-        .reasoning { font-style: italic; color: #666; font-size: 0.9rem; }
-        .feedback { background: #f9f9f9; padding: 1rem; border-left: 4px solid #ff3e00; }
+        h1 { 
+          margin: 0; 
+          color: #2d3436; 
+          font-weight: 800; 
+          letter-spacing: -1px; 
+          font-size: 2.5rem;
+        }
+        h1 span { color: #ff3e00; }
+        
+        p { color: #636e72; font-size: 1.1rem; }
+        
+        /* Form Styling */
+        .input-group { gap: 1.2rem; }
+        .input-field { 
+          padding: 1rem; 
+          border: 1px solid #dfe6e9; 
+          border-radius: 8px; 
+          font-size: 1rem; 
+          transition: all 0.2s ease;
+          background: #fff;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .input-field:focus { 
+          outline: none; 
+          border-color: #ff3e00; 
+          box-shadow: 0 0 0 3px rgba(255, 62, 0, 0.1); 
+        }
+        
+        .mod-group { 
+          border: 1px solid #dfe6e9; 
+          border-radius: 12px; 
+          padding: 1.5rem; 
+          background: #fff;
+          transition: transform 0.2s ease;
+        }
+        .mod-group:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .mod-group legend { 
+          padding: 0 0.8rem; 
+          font-weight: 700; 
+          color: #2d3436; 
+          text-transform: uppercase; 
+          font-size: 0.8rem; 
+          letter-spacing: 1px;
+        }
+        
+        .analyze-btn {
+          padding: 1.2rem 2rem;
+          background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 1.2rem;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          transition: transform 0.1s ease, box-shadow 0.2s ease;
+          width: 100%;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .analyze-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .analyze-btn:active:not(:disabled) { transform: translateY(1px); }
 
-        /* Right Panel (Leaderboard) */
-        .leaderboard { background: #f4f4f4; padding: 1.5rem; border-radius: 8px; }
-        .leaderboard h2 { margin-top: 0; font-size: 1.5rem; border-bottom: 2px solid #ddd; padding-bottom: 0.5rem; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid #ddd; }
-        th { color: #666; font-weight: 600; }
-        tr:last-child td { border-bottom: none; }
-        .highlight { background: #fff8e1; font-weight: bold; }
+        /* Locked / Loading */
+        .loading-overlay {
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(8px);
+          animation: fadeIn 0.3s ease;
+        }
+        .spinner {
+          border-width: 3px;
+          border-color: #eee;
+          border-top-color: #ff3e00;
+        }
         
-        .driver-link { text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.3rem; }
-        .driver-link:hover { text-decoration: underline; color: #ff3e00; }
+        /* Results */
+        .result-card {
+          border: none;
+          background: #fff;
+          border-radius: 16px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+          padding: 3rem 2rem;
+          overflow: hidden;
+          position: relative;
+        }
+        .result-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0; height: 6px;
+          background: linear-gradient(90deg, #ff3e00, #ff7600);
+        }
         
-        /* Tooltip for Mods */
-        .time-cell { position: relative; cursor: help; border-bottom: 1px dashed #999; }
+        .score-circle {
+          width: 140px;
+          height: 140px;
+          background: #2d3436;
+          border: 4px solid #fff;
+          box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+          animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+          from { transform: scale(0.5); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        
+        .feedback-section h3 { 
+          color: #2d3436; 
+          font-size: 1.4rem; 
+          margin-bottom: 1.5rem;
+          border-color: #ff3e00;
+        }
+        .feedback-list li {
+          background: #f9f9f9;
+          padding: 1rem;
+          border-radius: 8px;
+          border-left: 3px solid #ff3e00;
+          margin-bottom: 1rem;
+          font-size: 1.05rem;
+        }
+
+        /* Leaderboard */
+        .leaderboard {
+          background: #fff;
+          padding: 0;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+          overflow: hidden;
+        }
+        .leaderboard h2 {
+          background: #2d3436;
+          color: #fff;
+          margin: 0;
+          padding: 1.5rem;
+          font-size: 1.2rem;
+          letter-spacing: 0.5px;
+          border: none;
+        }
+        table { font-size: 0.95rem; }
+        th { background: #f1f2f6; color: #636e72; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        tr:hover { background-color: #fafafa; }
+        .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
+        .driver-link { font-weight: 500; color: #2d3436; }
+        .time-cell { font-family: 'Roboto Mono', monospace; font-weight: 600; color: #ff3e00; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mod-group, .analyze-btn, .result-card, .score-circle, .loading-overlay {
+            animation: none !important;
+            transition: none !important;
+            transform: none !important;
+          }
+        }
         .time-cell:hover::after {
           content: attr(data-tooltip);
           position: absolute;
