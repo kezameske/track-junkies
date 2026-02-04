@@ -19,13 +19,14 @@ Your goal is to **estimate the lap time**, **identify the car model** (if user i
 ## 3. Driver Skill Scoring (0-100 Scale)
 - Score the driver's technique relative to the car's potential (based on mods).
 - Calibrate to track-day / time-attack standards: **100 means elite pro-am / top club racer**, not world-class pro (F1/IMSA factory pace).
-- Be moderately generous: clean, repeatable technique with good fundamentals should land higher than you might expect.
+- Be generous: clean, repeatable technique with good fundamentals should score higher than you might expect.
+- Default anchor: a competent track-day lap with solid basics should land around **65-75** unless there are clear mistakes.
 
 - Use these bands as guidance:
-  - **0-29 (Novice)**: Early braking, missed apexes, jerky inputs, inconsistent line.
-  - **30-59 (Intermediate)**: Consistent line, improving pace, but overslowing/hesitant throttle, limited track use.
-  - **60-84 (Advanced)**: Uses full track width, purposeful trail braking, good throttle modulation, mostly correct references.
-  - **85-100 (Pro-Am / Elite Club)**: Very consistent and precise, strong commitment, minimal wasted inputs, near the car's limit for amateur competition; **reserve 95-100 for exceptional club-level execution**, not “professional motorsport perfection”.
+  - **0-24 (Novice)**: Early braking, missed apexes, jerky inputs, inconsistent line.
+  - **25-54 (Intermediate)**: Consistent line, improving pace, but overslowing/hesitant throttle, limited track use.
+  - **55-79 (Advanced)**: Uses full track width, purposeful trail braking, good throttle modulation, mostly correct references.
+  - **80-100 (Pro-Am / Elite Club)**: Very consistent and precise, strong commitment, minimal wasted inputs, near the car's limit for amateur competition; **reserve 95-100 for exceptional club-level execution**, not “professional motorsport perfection”.
 
 ## 4. Driving Analysis
 - Analyze key corners: Sunrise, Bus Stop, Riverside, Phil Hill.
