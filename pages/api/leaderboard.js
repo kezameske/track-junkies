@@ -24,7 +24,7 @@ async function getSheetsClient() {
 
 export default async function handler(req, res) {
   const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-  const SHEET_NAME = 'Leaderboard'; // Ensure this sheet exists!
+  const SHEET_NAME = 'Sheet1'; // Ensure this sheet exists!
   
   if (!SPREADSHEET_ID) {
     return res.status(500).json({ error: 'Server misconfigured: GOOGLE_SHEET_ID missing' });
