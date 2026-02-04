@@ -43,6 +43,7 @@ export default function Home() {
   
   // Simulated Leaderboard State
   const [leaderboard, setLeaderboard] = useState([]);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   // Load leaderboard from API on mount
   useEffect(() => {
@@ -147,6 +148,14 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+
+    setError('');
+    if (!carModel || !url) {
+      setSetupOpen(true);
+      setError('Open Run Setup and provide Car Model + YouTube link.');
+      return;
+    }
+
     console.log('Submitting form...');
     setLoading(true);
     setProgress(10);
@@ -268,7 +277,57 @@ export default function Home() {
 
       <main className="main-grid" aria-busy={loading} aria-disabled={loading}>
         <section className="left-panel">
-          <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleKeyDown} className="input-group">
+          {error && <div className="error">{error}</div>}
+
+          <div className="result-area">
+            {result ? (
+              <div className="result-card fade-in">
+              <div className="score-header">
+                <h2>Driver Score</h2>
+                <div className="score-circle">
+                  <span className="score-value">{result.driver_level}</span>
+                  <span className="score-max">/100</span>
+                </div>
+              </div>
+
+              <div className="feedback-section">
+                <h3>AI Coach Feedback</h3>
+                {Array.isArray(result.driving_feedback) ? (
+                  <ul className="feedback-list">
+                    {result.driving_feedback.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{result.driving_feedback}</p>
+                )}
+              </div>
+            </div>
+            ) : (
+              <div className="result-card empty">
+                <h2>Driver Score</h2>
+                <p className="empty-text">Run an analysis to see your driver score and coaching feedback.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="cta-row">
+            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn">
+              {loading ? 'Analyzing...' : 'Analyze Lap'}
+            </button>
+            <button type="button" onClick={() => setSetupOpen((v) => !v)} disabled={loading} className="setup-btn">
+              {setupOpen ? 'Hide Setup' : 'Edit Run Setup'}
+            </button>
+          </div>
+
+          <details className="setup" open={setupOpen} onToggle={(e) => setSetupOpen(e.currentTarget.open)}>
+            <summary>
+              <span className="setup-title">Run Setup</span>
+              <span className="setup-meta">
+                {carModel ? carModel : 'Car'}{tire ? ` • ${tire}` : ''}{url ? ' • Link set' : ''}
+              </span>
+            </summary>
+            <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleKeyDown} className="input-group">
             <input
               type="text"
               placeholder="Driver Name (e.g. The Stig)"
@@ -391,37 +450,12 @@ export default function Home() {
               </div>
             </fieldset>
 
-            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn">
+
+            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn secondary">
               {loading ? 'Analyzing...' : 'Analyze Lap'}
             </button>
           </form>
-
-        {error && <div className="error">{error}</div>}
-
-          {result && (
-            <div className="result-card fade-in">
-              <div className="score-header">
-                <h2>Driver Score</h2>
-                <div className="score-circle">
-                  <span className="score-value">{result.driver_level}</span>
-                  <span className="score-max">/100</span>
-                </div>
-              </div>
-
-              <div className="feedback-section">
-                <h3>AI Coach Feedback</h3>
-                {Array.isArray(result.driving_feedback) ? (
-                  <ul className="feedback-list">
-                    {result.driving_feedback.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{result.driving_feedback}</p>
-                )}
-              </div>
-            </div>
-          )}
+          </details>
         </section>
 
         <aside className="right-panel">
@@ -490,9 +524,83 @@ export default function Home() {
         h1 span { color: #ff3e00; }
         
         p { color: #636e72; font-size: 1.1rem; }
-        
+
+        .main-grid {
+          display: grid;
+          grid-template-columns: minmax(440px, 1fr) minmax(560px, 1.35fr);
+          gap: 2rem;
+          align-items: start;
+        }
+
+        .left-panel { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+        .right-panel { position: sticky; top: 1.5rem; align-self: start; }
+
+        .result-area { display: flex; flex-direction: column; gap: 1rem; }
+
+        .cta-row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .setup-btn {
+          padding: 1.1rem 1.25rem;
+          border-radius: 8px;
+          border: 1px solid #dfe6e9;
+          background: #fff;
+          font-weight: 800;
+          color: #2d3436;
+          cursor: pointer;
+        }
+        .setup-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .setup {
+          background: #fff;
+          border: 1px solid #dfe6e9;
+          border-radius: 12px;
+          overflow: hidden;
+        }
+        .setup summary {
+          list-style: none;
+          cursor: pointer;
+          padding: 1rem 1.25rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 1rem;
+          user-select: none;
+          border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .setup summary::-webkit-details-marker { display: none; }
+        .setup-title { font-weight: 900; color: #2d3436; }
+        .setup-meta { color: #636e72; font-size: 0.95rem; }
+
+        .input-group { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 1.25rem 1.25rem; }
+        .input-field {
+          width: 100%;
+          padding: 1rem 1.1rem;
+          border: 1px solid #dfe6e9;
+          border-radius: 10px;
+          font-size: 1.05rem;
+          background: #fff;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .input-field:focus {
+          outline: none;
+          border-color: #ff3e00;
+          box-shadow: 0 0 0 4px rgba(255, 62, 0, 0.12);
+        }
+        .url-input { border-color: rgba(255, 62, 0, 0.6); }
+
+        .analyze-btn.secondary {
+          padding: 1rem 1.25rem;
+          font-size: 1rem;
+          font-weight: 900;
+          border-radius: 10px;
+        }
+
         /* Form Styling */
-        .input-group { gap: 1rem; } /* Reduced gap */
         
         .mod-group { 
           border: 1px solid #dfe6e9; 
@@ -664,6 +772,7 @@ export default function Home() {
         
         @media (max-width: 768px) {
           .main-grid { grid-template-columns: 1fr; }
+          .right-panel { position: static; }
           .mods-grid { grid-template-columns: repeat(2, 1fr); } /* 2 cols on mobile */
         }
       `}</style>

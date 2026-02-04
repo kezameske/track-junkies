@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     }
 
     // Use gemini-2.0-flash as requested
-    const modelId = "gemini-2.0-flash";
+    const modelId = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     console.log(`Initializing Gemini model: ${modelId}`);
     const model = genAI.getGenerativeModel({ model: modelId });
 
