@@ -209,10 +209,9 @@ export default function Home() {
       if (!leaderboardRes.ok) {
         const errData = await leaderboardRes.json();
         console.warn('Leaderboard update failed:', errData);
-        // Don't block the UI, but show a warning if needed. 
-        // For now, let's treat it as a non-fatal error but maybe alert the user?
-        // Or actually, let's throw so they know why it didn't save.
-        throw new Error(`Analysis complete, but failed to save to leaderboard: ${errData.error || leaderboardRes.statusText}`);
+        
+        const errorDetail = errData.details ? ` (${errData.details})` : '';
+        throw new Error(`Analysis complete, but failed to save to leaderboard: ${errData.error || leaderboardRes.statusText}${errorDetail}`);
       }
       
       // Reload leaderboard to get fresh sort from backend
