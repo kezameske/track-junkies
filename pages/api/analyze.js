@@ -102,6 +102,10 @@ ${getModsLine('Tire', tireValue) }
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    res.status(500).json({ error: error.message || 'Analysis failed' });
+    const message = error?.message || 'Analysis failed';
+    if (message.includes('429') || error?.status === 429) {
+      return res.status(429).json({ error: 'Too many requests. Please wait and try again.' });
+    }
+    res.status(500).json({ error: message });
   }
 }

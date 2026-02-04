@@ -144,12 +144,16 @@ export default function Home() {
       suspensionMod: suspensionText,
       aeroMod: aeroText,
     };
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
   };
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+
+    if (loading) {
+      return;
+    }
 
     setError('');
     if (!carModel || !url) {
@@ -273,6 +277,9 @@ export default function Home() {
   };
 
   const handleKeyDown = (e) => {
+    if (loading) {
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit(e);
