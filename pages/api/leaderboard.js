@@ -18,14 +18,20 @@ async function getSheetsClient() {
   try {
     credentials = JSON.parse(cleanServiceAccount);
   } catch (err) {
-    // Attempt to recover from common copy-paste errors (like using single quotes for keys)
+    // Attempt to recover from common invalid JSON formats (like single-quoted keys)
     try {
-      // Replace single quoted keys/values with double quotes
-      // This is a naive regex but handles the common case: {'type': 'service_account'}
-      const relaxedJson = cleanServiceAccount.replace(/'/g, '"');
-      credentials = JSON.parse(relaxedJson);
+      // 1. If it looks like Python dict or single-quoted JSON: { 'key': 'value' }
+      // Replace 'key' with "key" and 'value' with "value"
+      // Note: This is a best-effort recovery for common Vercel copy-paste errors
+      let repaired = cleanServiceAccount
+        .replace(/'/g, '"') // Replace all single quotes with double quotes
+        .replace(/False/g, 'false') // Handle Python-style booleans if present
+        .replace(/True/g, 'true');
+
+      credentials = JSON.parse(repaired);
     } catch (retryErr) {
-      throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON.`);
+      // If recovery fails, throw original error with clarity
+      throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON (double-quoted keys).`);
     }
   }
   

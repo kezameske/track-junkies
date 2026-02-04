@@ -513,9 +513,12 @@ export default function Home() {
           border-radius: 12px; 
           padding: 1.5rem; 
           background: #fff;
-          transition: transform 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-        .mod-group:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .mod-group:hover { 
+          border-color: #b2bec3;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
         .mod-group legend { 
           padding: 0 0.8rem; 
           font-weight: 700; 
@@ -577,9 +580,9 @@ export default function Home() {
         .score-circle {
           width: 140px;
           height: 140px;
-          background: #2d3436;
+          background: #ff3e00;
           border: 4px solid #fff;
-          box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+          box-shadow: 0 8px 25px rgba(255, 62, 0, 0.3);
           animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         @keyframes popIn {
