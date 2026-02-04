@@ -44,6 +44,7 @@ export default function Home() {
   // Simulated Leaderboard State
   const [leaderboard, setLeaderboard] = useState([]);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
   const submitLockRef = useRef(false);
 
   // Load leaderboard from API on mount
@@ -148,14 +149,6 @@ export default function Home() {
   };
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  const buildTooltip = (modsText, summaryText) => {
-    const base = modsText || '';
-    if (summaryText) {
-      return base + (base ? '\n\n' : '') + 'AI: ' + summaryText;
-    }
-    return base;
-  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -313,6 +306,33 @@ export default function Home() {
             <p>Analyzing lap telemetry...</p>
             <div className="progress-bar">
               <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedEntry && (
+        <div className="modal-overlay" onClick={() => setSelectedEntry(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Run Details</h3>
+              <button className="modal-close" onClick={() => setSelectedEntry(null)}>Close</button>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">Mods</div>
+              <div className="modal-value">{selectedEntry.mods || 'None listed'}</div>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">AI Feedback</div>
+              {selectedEntry.summary ? (
+                <ul>
+                  {selectedEntry.summary.split('\n').filter(Boolean).map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="modal-value">No feedback available.</div>
+              )}
             </div>
           </div>
         </div>
@@ -531,7 +551,15 @@ export default function Home() {
                 {leaderboard.map((entry, i) => (
                   <tr key={i} className={entry.name === userName ? 'highlight' : ''}>
                     <td>{entry.rank}</td>
-                    <td className="time-cell" data-tooltip={buildTooltip(entry.mods, entry.summary)}>{entry.time}</td>
+                    <td className="time-cell">
+                      <button
+                        className="time-button"
+                        type="button"
+                        onClick={() => setSelectedEntry(entry)}
+                      >
+                        {entry.time}
+                      </button>
+                    </td>
                     <td className="driver-cell">
                       <div className="driver-name">{entry.name}</div>
                       <div className="driver-car">{entry.car}</div>
@@ -826,7 +854,17 @@ export default function Home() {
         tr:hover { background-color: #fafafa; }
         .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
         .driver-link { font-weight: 500; color: #2d3436; }
-        .time-cell { position: relative; cursor: help; border-bottom: 1px dashed rgba(255, 62, 0, 0.45); font-family: 'Roboto Mono', monospace; font-weight: 700; color: #ff3e00; }
+        .time-cell { font-family: 'Roboto Mono', monospace; font-weight: 700; color: #ff3e00; }
+        .time-button {
+          background: none;
+          border: none;
+          color: #ff3e00;
+          font: inherit;
+          cursor: pointer;
+          padding: 0;
+          border-bottom: 1px dashed rgba(255, 62, 0, 0.45);
+        }
+        .time-button:hover { color: #d63000; }
 
         .driver-cell { max-width: 240px; }
         .driver-name { font-weight: 800; color: #2d3436; }
@@ -867,25 +905,43 @@ export default function Home() {
             transform: none !important;
           }
         }
-        .time-cell:hover::after {
-          content: attr(data-tooltip);
-          position: absolute;
-          bottom: 100%;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #333;
-          color: #fff;
-          padding: 0.5rem;
-          border-radius: 4px;
-          white-space: pre-wrap;
-          text-align: left;
-          min-width: 200px;
-          max-width: 400px;
-          z-index: 100;
-          font-size: 0.8rem;
-          pointer-events: none;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0,0,0,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          padding: 1.5rem;
         }
+        .modal-card {
+          background: #fff;
+          border-radius: 12px;
+          padding: 1.5rem;
+          max-width: 520px;
+          width: 100%;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 1rem;
+        }
+        .modal-close {
+          background: #f1f2f6;
+          border: none;
+          padding: 0.4rem 0.8rem;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        .modal-section { margin-bottom: 1rem; }
+        .modal-label { font-weight: 800; color: #2d3436; margin-bottom: 0.35rem; }
+        .modal-value { color: #2d3436; }
         
         @media (max-width: 768px) {
           .main-grid { grid-template-columns: 1fr; }
