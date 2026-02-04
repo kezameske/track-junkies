@@ -9,10 +9,7 @@ async function getSheetsClient() {
   }
 
   // Robust parsing for "dirty JSON" (common in Vercel env vars)
-  // Handles single quotes, unquoted keys, trailing commas, etc.
   let cleanServiceAccount = serviceAccount.trim();
-  
-  // Strip outer quotes if present
   if ((cleanServiceAccount.startsWith("'") && cleanServiceAccount.endsWith("'")) ||
       (cleanServiceAccount.startsWith('"') && cleanServiceAccount.endsWith('"'))) {
     cleanServiceAccount = cleanServiceAccount.slice(1, -1);
@@ -20,11 +17,8 @@ async function getSheetsClient() {
 
   let credentials;
   try {
-    // 1. Try strict JSON parse first
     credentials = JSON.parse(cleanServiceAccount);
   } catch (err) {
-    // 2. Fallback: Use vm.runInNewContext to safely evaluate JS object literals / loose JSON
-    // This handles { 'key': 'value' } or { key: "value" } formats common in copy-paste
     try {
       const sandbox = {};
       credentials = vm.runInNewContext(`(${cleanServiceAccount})`, sandbox);
@@ -33,7 +27,6 @@ async function getSheetsClient() {
     }
   }
   
-  // Basic validation of credentials
   if (!credentials.client_email || !credentials.private_key) {
     throw new Error('Invalid Service Account JSON: Missing client_email or private_key');
   }
@@ -49,7 +42,6 @@ async function getSheetsClient() {
 // Helper to parse "MM:SS.ms" into milliseconds
 function parseLapTimeToMs(timeStr) {
   if (!timeStr) return Infinity;
-  // Remove any non-time chars (keep digits, colon, dot)
   const cleanStr = timeStr.replace(/[^0-9:.]/g, '');
   const parts = cleanStr.split(':');
   
@@ -90,6 +82,7 @@ function buildLeaderboard(rows) {
     const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
     const currentMs = parseLapTimeToMs(entry.time);
 
+    // Keep the FASTEST entry for this driver+car combo
     if (!bestRuns.has(key)) {
       bestRuns.set(key, entry);
     } else {
@@ -144,8 +137,7 @@ export default async function handler(req, res) {
          return res.status(200).json(computed);
       }
 
-      // If we read from Sheet2, we assume it is already sorted/deduped by the POST process,
-      // but let's parse it into objects for the frontend
+      // If we read from Sheet2, we assume it is already sorted/deduped by the POST process
       const leaderboard = rows.map((row, i) => ({
           rank: i + 1,
           name: row[0] || 'Anonymous',
@@ -224,99 +216,6 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Google Sheets API Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to sync with sheets', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-  }
-
-  try {
-    const sheets = await getSheetsClient();
-
-    if (req.method === 'GET') {
-      // READ LEADERBOARD
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${LEADERBOARD_SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
-      });
-
-      let rows = response.data.values || [];
-      
-      // If Sheet2 is empty, fall back to Sheet1 and compute best times
-      if (!rows.length) {
-        const inputResponse = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${INPUT_SHEET_NAME}!A2:G1000`,
-        });
-        rows = inputResponse.data.values || [];
-      }
-
-      const leaderboard = buildLeaderboard(rows);
-      return res.status(200).json(leaderboard);
-    } 
-    
-    else if (req.method === 'POST') {
-      // APPEND NEW ENTRY
-      const { name, car, time, level, url, mods, summary } = req.body;
-      console.log(`[Leaderboard] Appending entry: ${name} in ${car}`);
-
-      if (!time) {
-        return res.status(400).json({ error: 'Missing lap time' });
-      }
-
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${INPUT_SHEET_NAME}!A:G`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: [[name, car, time, level, url, mods, summary || '']],
-        },
-      });
-
-      const inputResponse = await sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${INPUT_SHEET_NAME}!A2:G1000`,
-      });
-
-      const inputRows = inputResponse.data.values || [];
-      const leaderboard = buildLeaderboard(inputRows);
-
-      const header = ['Driver', 'Car', 'Time', 'Score', 'YouTube', 'Mods', 'Summary'];
-      const values = [header].concat(
-        leaderboard.map((entry) => [
-          entry.name,
-          entry.car,
-          entry.time,
-          entry.level,
-          entry.url,
-          entry.mods,
-          entry.summary || '',
-        ]),
-      );
-
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${LEADERBOARD_SHEET_NAME}!A1:Z1000`,
-      });
-
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${LEADERBOARD_SHEET_NAME}!A1`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values },
-      });
-
-      console.log(`[Leaderboard] Successfully appended to ${INPUT_SHEET_NAME} and updated ${LEADERBOARD_SHEET_NAME}`);
-      return res.status(200).json({ message: 'Success', leaderboard });
-    } else {
-      res.status(405).json({ error: 'Method not allowed' });
-    }
-  } catch (error) {
-    console.error('Google Sheets API Error:', error);
-    // Return explicit error message for debugging
     res.status(500).json({ 
       error: 'Failed to sync with sheets', 
       details: error.message,
