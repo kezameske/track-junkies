@@ -530,21 +530,23 @@ export default function Home() {
         
         .analyze-btn {
           padding: 1.2rem 2rem;
-          background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+          background: linear-gradient(135deg, #ff3e00 0%, #d63000 100%);
           color: #fff;
           border: none;
           border-radius: 8px;
           cursor: pointer;
           font-size: 1.2rem;
-          font-weight: 700;
-          letter-spacing: 0.5px;
-          transition: transform 0.1s ease, box-shadow 0.2s ease;
+          font-weight: 800;
+          letter-spacing: 1px;
+          text-transform: uppercase;
           width: 100%;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 15px rgba(255, 62, 0, 0.4);
+          transition: all 0.2s ease;
         }
         .analyze-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+          box-shadow: 0 6px 20px rgba(255, 62, 0, 0.6);
+          filter: brightness(1.1);
         }
         .analyze-btn:active:not(:disabled) { transform: translateY(1px); }
 
@@ -580,14 +582,26 @@ export default function Home() {
         .score-circle {
           width: 140px;
           height: 140px;
-          background: #ff3e00;
-          border: 4px solid #fff;
-          box-shadow: 0 8px 25px rgba(255, 62, 0, 0.3);
+          background: #fff; /* White center */
+          border: 8px solid #ff3e00; /* Thick ring */
+          border-radius: 50%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
           animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes popIn {
-          from { transform: scale(0.5); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
+        .score-value { 
+          color: #2d3436;
+          font-size: 3.5rem; 
+          font-weight: 800; 
+          line-height: 1; 
+        }
+        .score-max { 
+          color: #b2bec3;
+          font-size: 1rem; 
+          font-weight: 600; 
         }
         
         .feedback-section h3 { 

@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import vm from 'node:vm';
 
 // Helper to get authenticated Sheets client
 async function getSheetsClient() {
@@ -7,31 +8,28 @@ async function getSheetsClient() {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing in environment variables');
   }
 
-  // Handle potential single quotes in Vercel env var (common copy/paste error)
-  // If it starts with ' and ends with ', strip them.
+  // Robust parsing for "dirty JSON" (common in Vercel env vars)
+  // Handles single quotes, unquoted keys, trailing commas, etc.
   let cleanServiceAccount = serviceAccount.trim();
-  if (cleanServiceAccount.startsWith("'") && cleanServiceAccount.endsWith("'")) {
+  
+  // Strip outer quotes if present
+  if ((cleanServiceAccount.startsWith("'") && cleanServiceAccount.endsWith("'")) ||
+      (cleanServiceAccount.startsWith('"') && cleanServiceAccount.endsWith('"'))) {
     cleanServiceAccount = cleanServiceAccount.slice(1, -1);
   }
 
   let credentials;
   try {
+    // 1. Try strict JSON parse first
     credentials = JSON.parse(cleanServiceAccount);
   } catch (err) {
-    // Attempt to recover from common invalid JSON formats (like single-quoted keys)
+    // 2. Fallback: Use vm.runInNewContext to safely evaluate JS object literals / loose JSON
+    // This handles { 'key': 'value' } or { key: "value" } formats common in copy-paste
     try {
-      // 1. If it looks like Python dict or single-quoted JSON: { 'key': 'value' }
-      // Replace 'key' with "key" and 'value' with "value"
-      // Note: This is a best-effort recovery for common Vercel copy-paste errors
-      let repaired = cleanServiceAccount
-        .replace(/'/g, '"') // Replace all single quotes with double quotes
-        .replace(/False/g, 'false') // Handle Python-style booleans if present
-        .replace(/True/g, 'true');
-
-      credentials = JSON.parse(repaired);
-    } catch (retryErr) {
-      // If recovery fails, throw original error with clarity
-      throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON (double-quoted keys).`);
+      const sandbox = {};
+      credentials = vm.runInNewContext(`(${cleanServiceAccount})`, sandbox);
+    } catch (vmErr) {
+      throw new Error(`Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: ${err.message}. Ensure it is valid JSON.`);
     }
   }
   
