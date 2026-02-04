@@ -72,6 +72,44 @@ function parseLapTimeToMs(timeStr) {
   }
 }
 
+function buildLeaderboard(rows) {
+  const bestRuns = new Map();
+
+  rows.forEach((row) => {
+    const entry = {
+      rank: 0,
+      name: row[0] || 'Anonymous',
+      car: row[1] || 'Unknown',
+      time: row[2] || '00:00.0',
+      level: row[3] || '0',
+      url: row[4] || '',
+      mods: row[5] || '',
+      summary: row[6] || '',
+    };
+
+    const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
+    const currentMs = parseLapTimeToMs(entry.time);
+
+    if (!bestRuns.has(key)) {
+      bestRuns.set(key, entry);
+    } else {
+      const existing = bestRuns.get(key);
+      const existingMs = parseLapTimeToMs(existing.time);
+      if (currentMs < existingMs) {
+        bestRuns.set(key, entry);
+      }
+    }
+  });
+
+  const leaderboard = Array.from(bestRuns.values());
+  leaderboard.sort((a, b) => parseLapTimeToMs(a.time) - parseLapTimeToMs(b.time));
+  leaderboard.forEach((entry, i) => {
+    entry.rank = i + 1;
+  });
+
+  return leaderboard;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const SPREADSHEET_ID = process.env.GOOGLE_LEADERBOARD_SHEET_ID || process.env.GOOGLE_SHEET_ID;
@@ -86,21 +124,30 @@ export default async function handler(req, res) {
     const sheets = await getSheetsClient();
 
     if (req.method === 'GET') {
-      // READ LEADERBOARD
+      // READ LEADERBOARD from Sheet2
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${LEADERBOARD_SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
+        range: `${LEADERBOARD_SHEET_NAME}!A2:G1000`,
       });
 
-      const rows = response.data.values || [];
+      let rows = response.data.values || [];
       
-      // Deduplicate: Map(Name+Car -> Entry)
-      // Strategy: keep the LATEST entry per (driver, car) (sheet is append-only chronological)
-      const bestRuns = new Map();
+      // Fallback: If Sheet2 is empty, try reading from Sheet1 and computing it on the fly
+      if (!rows.length) {
+         console.log('Sheet2 empty, falling back to computing from Sheet1');
+         const inputResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${INPUT_SHEET_NAME}!A2:G1000`,
+         });
+         const inputRows = inputResponse.data.values || [];
+         const computed = buildLeaderboard(inputRows);
+         return res.status(200).json(computed);
+      }
 
-      rows.forEach((row) => {
-        const entry = {
-          rank: 0,
+      // If we read from Sheet2, we assume it is already sorted/deduped by the POST process,
+      // but let's parse it into objects for the frontend
+      const leaderboard = rows.map((row, i) => ({
+          rank: i + 1,
           name: row[0] || 'Anonymous',
           car: row[1] || 'Unknown',
           time: row[2] || '00:00.0',
@@ -108,20 +155,106 @@ export default async function handler(req, res) {
           url: row[4] || '',
           mods: row[5] || '',
           summary: row[6] || ''
-        };
+      }));
 
-        const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
-        bestRuns.set(key, entry);
+      return res.status(200).json(leaderboard);
+
+    } 
+    
+    else if (req.method === 'POST') {
+      // APPEND NEW ENTRY to Sheet1 (Log)
+      const { name, car, time, level, url, mods, summary } = req.body;
+      console.log(`[Leaderboard] Appending entry: ${name} in ${car}`);
+
+      if (!time) {
+        return res.status(400).json({ error: 'Missing lap time' });
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${INPUT_SHEET_NAME}!A:G`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[name, car, time, level, url, mods, summary || '']],
+        },
       });
 
-      const leaderboard = Array.from(bestRuns.values());
+      // UPDATE LEADERBOARD (Sheet2)
+      // 1. Read all logs from Sheet1
+      const inputResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${INPUT_SHEET_NAME}!A2:G1000`,
+      });
+      const inputRows = inputResponse.data.values || [];
+      
+      // 2. Compute best times
+      const leaderboard = buildLeaderboard(inputRows);
 
-      // Sort by time (numeric ascending)
-      leaderboard.sort((a, b) => parseLapTimeToMs(a.time) - parseLapTimeToMs(b.time));
+      // 3. Prepare Sheet2 payload (including header)
+      const header = ['Driver', 'Car', 'Time', 'Score', 'YouTube', 'Mods', 'Summary'];
+      const values = [header].concat(
+        leaderboard.map((entry) => [
+          entry.name,
+          entry.car,
+          entry.time,
+          entry.level,
+          entry.url,
+          entry.mods,
+          entry.summary || '',
+        ]),
+      );
 
-      // Re-assign ranks after sort
-      leaderboard.forEach((entry, i) => entry.rank = i + 1);
+      // 4. Overwrite Sheet2
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${LEADERBOARD_SHEET_NAME}!A1:Z1000`,
+      });
 
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${LEADERBOARD_SHEET_NAME}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values },
+      });
+
+      console.log(`[Leaderboard] Successfully appended to ${INPUT_SHEET_NAME} and updated ${LEADERBOARD_SHEET_NAME}`);
+      return res.status(200).json({ message: 'Success', leaderboard });
+    } else {
+      res.status(405).json({ error: 'Method not allowed' });
+    }
+  } catch (error) {
+    console.error('Google Sheets API Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to sync with sheets', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+  }
+
+  try {
+    const sheets = await getSheetsClient();
+
+    if (req.method === 'GET') {
+      // READ LEADERBOARD
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${LEADERBOARD_SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
+      });
+
+      let rows = response.data.values || [];
+      
+      // If Sheet2 is empty, fall back to Sheet1 and compute best times
+      if (!rows.length) {
+        const inputResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${INPUT_SHEET_NAME}!A2:G1000`,
+        });
+        rows = inputResponse.data.values || [];
+      }
+
+      const leaderboard = buildLeaderboard(rows);
       return res.status(200).json(leaderboard);
     } 
     
@@ -143,8 +276,41 @@ export default async function handler(req, res) {
         },
       });
 
-      console.log(`[Leaderboard] Successfully appended to ${INPUT_SHEET_NAME}`);
-      return res.status(200).json({ message: 'Success' });
+      const inputResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${INPUT_SHEET_NAME}!A2:G1000`,
+      });
+
+      const inputRows = inputResponse.data.values || [];
+      const leaderboard = buildLeaderboard(inputRows);
+
+      const header = ['Driver', 'Car', 'Time', 'Score', 'YouTube', 'Mods', 'Summary'];
+      const values = [header].concat(
+        leaderboard.map((entry) => [
+          entry.name,
+          entry.car,
+          entry.time,
+          entry.level,
+          entry.url,
+          entry.mods,
+          entry.summary || '',
+        ]),
+      );
+
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${LEADERBOARD_SHEET_NAME}!A1:Z1000`,
+      });
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${LEADERBOARD_SHEET_NAME}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values },
+      });
+
+      console.log(`[Leaderboard] Successfully appended to ${INPUT_SHEET_NAME} and updated ${LEADERBOARD_SHEET_NAME}`);
+      return res.status(200).json({ message: 'Success', leaderboard });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
     }

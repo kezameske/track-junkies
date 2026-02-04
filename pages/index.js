@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -44,6 +44,7 @@ export default function Home() {
   // Simulated Leaderboard State
   const [leaderboard, setLeaderboard] = useState([]);
   const [setupOpen, setSetupOpen] = useState(false);
+  const submitLockRef = useRef(false);
 
   // Load leaderboard from API on mount
   useEffect(() => {
@@ -151,7 +152,7 @@ export default function Home() {
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
 
-    if (loading) {
+    if (loading || submitLockRef.current) {
       return;
     }
 
@@ -161,6 +162,8 @@ export default function Home() {
       setError('Open Run Setup and provide Car Model + YouTube link.');
       return;
     }
+
+    submitLockRef.current = true;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -207,6 +210,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
       
       setResult(data);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
       // Post new entry to Sheets API
       const summary = Array.isArray(data.driving_feedback) 
@@ -231,13 +235,18 @@ export default function Home() {
         body: JSON.stringify(newEntry)
       });
 
+      const savedData = await leaderboardRes.json();
       if (!leaderboardRes.ok) {
-        const errData = await leaderboardRes.json();
+        const errData = savedData;
         console.warn('Leaderboard update failed:', errData);
         const errorDetail = errData.details ? ` (${errData.details})` : '';
         // Set error but do NOT throw, so the user can still see the analysis result
         setError(`Note: Analysis saved locally but leaderboard sync failed: ${errData.error || leaderboardRes.statusText}${errorDetail}`);
       } else {
+        if (savedData && Array.isArray(savedData.leaderboard)) {
+          setLeaderboard(savedData.leaderboard);
+        }
+
         // Only refresh leaderboard if save succeeded
         const entryKey = `${(newEntry.name || '').trim()}|${(newEntry.car || '').trim()}`.toLowerCase();
 
@@ -260,7 +269,7 @@ export default function Home() {
           }
         }
 
-        if (freshLeaderboard) {
+        if (!savedData?.leaderboard && freshLeaderboard) {
           setLeaderboard(freshLeaderboard);
         }
       }
@@ -273,11 +282,12 @@ export default function Home() {
       setLoading(false);
       // Reset progress after a short delay so user sees 100%
       setTimeout(() => setProgress(0), 1000);
+      submitLockRef.current = false;
     }
   };
 
   const handleKeyDown = (e) => {
-    if (loading) {
+    if (loading || submitLockRef.current) {
       return;
     }
     if (e.key === 'Enter') {
@@ -310,7 +320,15 @@ export default function Home() {
           {error && <div className="error">{error}</div>}
 
           <div className="result-area">
-            {result ? (
+            {loading ? (
+              <div className="result-card loading">
+                <h2>Analyzing Lap...</h2>
+                <p className="empty-text">Estimating lap time and driver score. This may take a moment.</p>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                </div>
+              </div>
+            ) : result ? (
               <div className="result-card fade-in">
               <div className="score-header">
                 <h2>Driver Score</h2>
@@ -711,6 +729,10 @@ export default function Home() {
           padding: 3rem 2rem;
           overflow: hidden;
           position: relative;
+        }
+        .result-card.loading {
+          border: 1px dashed rgba(255, 62, 0, 0.4);
+          background: #fff7f2;
         }
         .result-card::before {
           content: '';
