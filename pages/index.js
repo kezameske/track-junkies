@@ -541,10 +541,11 @@ export default function Home() {
               <thead>
                 <tr>
                   <th>#</th>
-                    <th>Time</th>
-                    <th>Driver</th>
-                    <th>Score</th>
-                    <th>Video</th>
+                  <th>Time</th>
+                  <th>Score</th>
+                  <th>Video</th>
+                  <th>Driver</th>
+                  <th>Car</th>
                 </tr>
               </thead>
               <tbody>
@@ -560,10 +561,6 @@ export default function Home() {
                         {entry.time}
                       </button>
                     </td>
-                    <td className="driver-cell">
-                      <div className="driver-name">{entry.name}</div>
-                      <div className="driver-car">{entry.car}</div>
-                    </td>
                     <td className="score-cell">{entry.level}</td>
                     <td>
                       {entry.url ? (
@@ -573,6 +570,12 @@ export default function Home() {
                       ) : (
                         <span className="muted">-</span>
                       )}
+                    </td>
+                    <td className="driver-cell">
+                      <div className="driver-name">{entry.name}</div>
+                    </td>
+                    <td className="car-cell">
+                      <div className="car-name">{entry.car}</div>
                     </td>
                   </tr>
                 ))}
@@ -682,7 +685,7 @@ export default function Home() {
         .setup-title { font-weight: 900; color: #2d3436; }
         .setup-meta { color: #636e72; font-size: 0.95rem; }
 
-        .input-group { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 1.25rem 1.25rem; }
+        .input-group { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 1.25rem 1.25rem; width: 100%; box-sizing: border-box; }
         .input-field {
           width: 100%;
           padding: 1rem 1.1rem;
@@ -691,6 +694,7 @@ export default function Home() {
           font-size: 1.05rem;
           background: #fff;
           box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+          box-sizing: border-box;
         }
         .input-field:focus {
           outline: none;
@@ -849,8 +853,14 @@ export default function Home() {
           letter-spacing: 0.5px;
           border: none;
         }
-        table { font-size: 0.95rem; }
+        table { font-size: 0.95rem; width: 100%; table-layout: fixed; }
         th { background: #f1f2f6; color: #636e72; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
+        th, td { overflow: hidden; text-overflow: ellipsis; }
+        th:nth-child(2), td:nth-child(2) { width: 90px; } /* Time */
+        th:nth-child(3), td:nth-child(3) { width: 60px; } /* Score */
+        th:nth-child(4), td:nth-child(4) { width: 70px; } /* Video */
+        th:nth-child(5), td:nth-child(5) { width: 25%; } /* Driver */
+        th:nth-child(6), td:nth-child(6) { width: 25%; } /* Car */
         tr:hover { background-color: #fafafa; }
         .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
         .driver-link { font-weight: 500; color: #2d3436; }
@@ -866,9 +876,10 @@ export default function Home() {
         }
         .time-button:hover { color: #d63000; }
 
-        .driver-cell { max-width: 240px; }
+        .driver-cell { max-width: 100%; white-space: normal; word-break: break-word; }
         .driver-name { font-weight: 800; color: #2d3436; }
-        .driver-car { font-size: 0.85rem; color: #636e72; margin-top: 0.15rem; }
+        .car-cell { max-width: 100%; white-space: normal; word-break: break-word; }
+        .car-name { font-size: 0.9rem; color: #636e72; }
         .score-cell { font-weight: 800; color: #2d3436; }
         .video-link { font-weight: 800; color: #ff3e00; text-decoration: none; }
         .video-link:hover { text-decoration: underline; }

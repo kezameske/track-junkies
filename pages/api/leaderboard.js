@@ -137,17 +137,21 @@ export default async function handler(req, res) {
          return res.status(200).json(computed);
       }
 
-      // If we read from Sheet2, we assume it is already sorted/deduped by the POST process
-      const leaderboard = rows.map((row, i) => ({
-          rank: i + 1,
-          name: row[0] || 'Anonymous',
-          car: row[1] || 'Unknown',
-          time: row[2] || '00:00.0',
-          level: row[3] || '0',
-          url: row[4] || '',
-          mods: row[5] || '',
-          summary: row[6] || ''
+      const leaderboard = rows.map((row) => ({
+        rank: 0,
+        name: row[0] || 'Anonymous',
+        car: row[1] || 'Unknown',
+        time: row[2] || '00:00.0',
+        level: row[3] || '0',
+        url: row[4] || '',
+        mods: row[5] || '',
+        summary: row[6] || '',
       }));
+
+      leaderboard.sort((a, b) => parseLapTimeToMs(a.time) - parseLapTimeToMs(b.time));
+      leaderboard.forEach((entry, i) => {
+        entry.rank = i + 1;
+      });
 
       return res.status(200).json(leaderboard);
 
