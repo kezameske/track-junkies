@@ -73,8 +73,10 @@ function parseLapTimeToMs(timeStr) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   const SPREADSHEET_ID = process.env.GOOGLE_LEADERBOARD_SHEET_ID || process.env.GOOGLE_SHEET_ID;
-  const SHEET_NAME = process.env.GOOGLE_LEADERBOARD_SHEET_NAME || 'Sheet2';
+  const LEADERBOARD_SHEET_NAME = process.env.GOOGLE_LEADERBOARD_SHEET_NAME || 'Sheet2';
+  const INPUT_SHEET_NAME = process.env.GOOGLE_INPUT_SHEET_NAME || 'Sheet1';
   
   if (!SPREADSHEET_ID) {
     return res.status(500).json({ error: 'Server misconfigured: GOOGLE_SHEET_ID / GOOGLE_LEADERBOARD_SHEET_ID missing' });
@@ -87,7 +89,7 @@ export default async function handler(req, res) {
       // READ LEADERBOARD
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
+        range: `${LEADERBOARD_SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
       });
 
       const rows = response.data.values || [];
@@ -134,14 +136,14 @@ export default async function handler(req, res) {
 
       await sheets.spreadsheets.values.append({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A:G`,
+        range: `${INPUT_SHEET_NAME}!A:G`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[name, car, time, level, url, mods, summary || '']],
         },
       });
 
-      console.log(`[Leaderboard] Successfully appended to ${SHEET_NAME}`);
+      console.log(`[Leaderboard] Successfully appended to ${INPUT_SHEET_NAME}`);
       return res.status(200).json({ message: 'Success' });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
@@ -150,7 +152,7 @@ export default async function handler(req, res) {
     console.error('Google Sheets API Error:', error);
     // Return explicit error message for debugging
     res.status(500).json({ 
-      error: 'Failed to sync with leaderboard', 
+      error: 'Failed to sync with sheets', 
       details: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });

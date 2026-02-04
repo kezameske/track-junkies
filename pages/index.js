@@ -144,6 +144,8 @@ export default function Home() {
       suspensionMod: suspensionText,
       aeroMod: aeroText,
     };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
   };
 
   const handleSubmit = async (e) => {
@@ -233,9 +235,28 @@ export default function Home() {
         setError(`Note: Analysis saved locally but leaderboard sync failed: ${errData.error || leaderboardRes.statusText}${errorDetail}`);
       } else {
         // Only refresh leaderboard if save succeeded
-        const refreshRes = await fetch('/api/leaderboard');
-        const freshLeaderboard = await refreshRes.json();
-        if (Array.isArray(freshLeaderboard)) {
+        const entryKey = `${(newEntry.name || '').trim()}|${(newEntry.car || '').trim()}`.toLowerCase();
+
+        const fetchLeaderboard = async () => {
+          const refreshRes = await fetch('/api/leaderboard', { cache: 'no-store' });
+          const freshLeaderboard = await refreshRes.json();
+          return Array.isArray(freshLeaderboard) ? freshLeaderboard : null;
+        };
+
+        let freshLeaderboard = await fetchLeaderboard();
+
+        // Sheets append can be eventually consistent; retry once if our entry is not reflected
+        if (freshLeaderboard) {
+          const hasEntry = freshLeaderboard.some(
+            (e) => `${(e.name || '').trim()}|${(e.car || '').trim()}`.toLowerCase() == entryKey && e.time == newEntry.time,
+          );
+          if (!hasEntry) {
+            await sleep(800);
+            freshLeaderboard = await fetchLeaderboard();
+          }
+        }
+
+        if (freshLeaderboard) {
           setLeaderboard(freshLeaderboard);
         }
       }
@@ -753,7 +774,7 @@ export default function Home() {
         tr:hover { background-color: #fafafa; }
         .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
         .driver-link { font-weight: 500; color: #2d3436; }
-        .time-cell { font-family: 'Roboto Mono', monospace; font-weight: 600; color: #ff3e00; }
+        .time-cell { position: relative; cursor: help; border-bottom: 1px dashed rgba(255, 62, 0, 0.45); font-family: 'Roboto Mono', monospace; font-weight: 700; color: #ff3e00; }
 
         .driver-cell { max-width: 240px; }
         .driver-name { font-weight: 800; color: #2d3436; }
