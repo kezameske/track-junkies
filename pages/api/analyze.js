@@ -13,6 +13,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
+  const normalizeUrl = (input) => {
+    const trimmed = String(input || '').trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  const normalizedUrl = normalizeUrl(url);
+  if (!/^https?:\/\//i.test(normalizedUrl)) {
+    return res.status(400).json({ error: 'URL must start with http:// or https://' });
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error('Error: GEMINI_API_KEY is not set in environment variables.');
@@ -25,7 +37,7 @@ export default async function handler(req, res) {
     // Fetch YouTube Metadata (Channel Name) via oEmbed
     let channelName = "Unknown Channel";
     try {
-      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(normalizedUrl)}&format=json`;
       const oembedRes = await fetch(oembedUrl);
       if (oembedRes.ok) {
         const oembedData = await oembedRes.json();
@@ -79,12 +91,12 @@ ${getModsLine('Tire', tireValue) }
       {
         fileData: {
           mimeType: "video/mp4",
-          fileUri: url
+          fileUri: normalizedUrl
         }
       }
     ];
 
-    console.log(`Analyzing ${url}...`);
+    console.log(`Analyzing ${normalizedUrl}...`);
     
     const result = await model.generateContent(promptParts);
     const response = await result.response;
