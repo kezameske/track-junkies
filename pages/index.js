@@ -156,6 +156,8 @@ export default function Home() {
       return;
     }
 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     console.log('Submitting form...');
     setLoading(true);
     setProgress(10);
@@ -465,24 +467,31 @@ export default function Home() {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Driver</th>
-                  <th>Car</th>
-                  <th>Time</th>
-                  <th>Lvl</th>
+                    <th>Time</th>
+                    <th>Driver</th>
+                    <th>Score</th>
+                    <th>Video</th>
                 </tr>
               </thead>
               <tbody>
                 {leaderboard.map((entry, i) => (
-                  <tr key={i} className={entry.name === userName ? "highlight" : ""}>
+                  <tr key={i} className={entry.name === userName ? 'highlight' : ''}>
                     <td>{entry.rank}</td>
-                    <td>
-                      <a href={entry.url} target="_blank" rel="noopener noreferrer" className="driver-link">
-                        {entry.name} 📹
-                      </a>
-                    </td>
-                    <td>{entry.car}</td>
                     <td className="time-cell" data-tooltip={entry.mods}>{entry.time}</td>
-                    <td>{entry.level}</td>
+                    <td className="driver-cell">
+                      <div className="driver-name">{entry.name}</div>
+                      <div className="driver-car">{entry.car}</div>
+                    </td>
+                    <td className="score-cell">{entry.level}</td>
+                    <td>
+                      {entry.url ? (
+                        <a href={entry.url} target="_blank" rel="noopener noreferrer" className="video-link">
+                          YouTube
+                        </a>
+                      ) : (
+                        <span className="muted">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -745,6 +754,14 @@ export default function Home() {
         .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
         .driver-link { font-weight: 500; color: #2d3436; }
         .time-cell { font-family: 'Roboto Mono', monospace; font-weight: 600; color: #ff3e00; }
+
+        .driver-cell { max-width: 240px; }
+        .driver-name { font-weight: 800; color: #2d3436; }
+        .driver-car { font-size: 0.85rem; color: #636e72; margin-top: 0.15rem; }
+        .score-cell { font-weight: 800; color: #2d3436; }
+        .video-link { font-weight: 800; color: #ff3e00; text-decoration: none; }
+        .video-link:hover { text-decoration: underline; }
+        .muted { color: #b2bec3; }
 
         @media (prefers-reduced-motion: reduce) {
           .mod-group, .analyze-btn, .result-card, .score-circle, .loading-overlay {

@@ -73,11 +73,11 @@ function parseLapTimeToMs(timeStr) {
 }
 
 export default async function handler(req, res) {
-  const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-  const SHEET_NAME = 'Sheet1'; // Ensure this sheet exists!
+  const SPREADSHEET_ID = process.env.GOOGLE_LEADERBOARD_SHEET_ID || process.env.GOOGLE_SHEET_ID;
+  const SHEET_NAME = process.env.GOOGLE_LEADERBOARD_SHEET_NAME || 'Sheet2';
   
   if (!SPREADSHEET_ID) {
-    return res.status(500).json({ error: 'Server misconfigured: GOOGLE_SHEET_ID missing' });
+    return res.status(500).json({ error: 'Server misconfigured: GOOGLE_SHEET_ID / GOOGLE_LEADERBOARD_SHEET_ID missing' });
   }
 
   try {
@@ -93,6 +93,7 @@ export default async function handler(req, res) {
       const rows = response.data.values || [];
       
       // Deduplicate: Map(Name+Car -> Entry)
+      // Strategy: keep the LATEST entry per (driver, car) (sheet is append-only chronological)
       const bestRuns = new Map();
 
       rows.forEach((row) => {
@@ -108,18 +109,7 @@ export default async function handler(req, res) {
         };
 
         const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
-        const currentMs = parseLapTimeToMs(entry.time);
-        
-        // Strategy: Keep the FASTEST entry for this driver+car combo
-        if (!bestRuns.has(key)) {
-          bestRuns.set(key, entry);
-        } else {
-          const existing = bestRuns.get(key);
-          const existingMs = parseLapTimeToMs(existing.time);
-          if (currentMs < existingMs) {
-            bestRuns.set(key, entry);
-          }
-        }
+        bestRuns.set(key, entry);
       });
 
       const leaderboard = Array.from(bestRuns.values());
