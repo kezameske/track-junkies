@@ -1,63 +1,235 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [url, setUrl] = useState('');
   const [userName, setUserName] = useState('');
   const [carModel, setCarModel] = useState('');
-  const [engineMod, setEngineMod] = useState('');
-  const [suspensionMod, setSuspensionMod] = useState('');
-  const [aeroMod, setAeroMod] = useState('');
+  const [tire, setTire] = useState('');
+  const [mods, setMods] = useState({
+    engine: {
+      Stock: true,
+      Header: false,
+      Exhaust: false,
+      Intake: false,
+      Cam: false,
+      Supercharge: false,
+      Turbocharged: false,
+      'Upgraded Turbo': false,
+    },
+    ecu: {
+      Stock: true,
+      Tuned: false,
+    },
+    drivetrain: {
+      Stock: true,
+      'Aftermarket LSD 1.5 or 2 way': false,
+    },
+    suspension: {
+      Stock: true,
+      '1 Way Coilover': false,
+      '2 Way Coilover': false,
+      '3 Way Coilover': false,
+    },
+    aero: {
+      Stock: true,
+      'Front Splitter': false,
+      'Front Splitter and Rear Wing': false,
+    },
+  });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   
   // Simulated Leaderboard State
-  const [leaderboard, setLeaderboard] = useState([
-    { rank: 1, name: "Stig", car: "Porsche GT3 RS", time: "1:48.2", level: 10, url: "https://youtu.be/example1", mods: "Stock" },
-    { rank: 2, name: "Keiichi", car: "Toyota AE86", time: "1:55.4", level: 9, url: "https://youtu.be/example2", mods: "TRD Suspension, ITBs" },
-    { rank: 3, name: "Randy", car: "Subaru WRX", time: "1:58.1", level: 8, url: "https://youtu.be/example3", mods: "Coilovers, Tune" },
-  ]);
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  // Load leaderboard from API on mount
+  useEffect(() => {
+    fetch('/api/leaderboard')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLeaderboard(data);
+        }
+      })
+      .catch(err => console.error("Failed to load leaderboard:", err));
+  }, []);
+
+  // Removed localStorage sync since we now use the API
+
+  const setSingleChoice = (category, choice) => {
+    setMods(prev => {
+      const nextCategory = {};
+      for (const key of Object.keys(prev[category])) {
+        nextCategory[key] = false;
+      }
+      nextCategory[choice] = true;
+      return { ...prev, [category]: nextCategory };
+    });
+  };
+
+  const toggleEngine = (choice) => {
+    const boltOns = new Set(['Header', 'Exhaust', 'Intake', 'Cam']);
+    const forcedInduction = new Set(['Supercharge', 'Turbocharged', 'Upgraded Turbo']);
+
+    setMods(prev => {
+      const nextEngine = { ...prev.engine };
+
+      if (choice === 'Stock') {
+        for (const key of Object.keys(nextEngine)) nextEngine[key] = false;
+        nextEngine.Stock = true;
+        return { ...prev, engine: nextEngine };
+      }
+
+      nextEngine.Stock = false;
+
+      if (forcedInduction.has(choice)) {
+        for (const key of forcedInduction) nextEngine[key] = false;
+        nextEngine[choice] = !prev.engine[choice];
+      } else if (boltOns.has(choice)) {
+        nextEngine[choice] = !prev.engine[choice];
+      }
+
+      const anyNonStock = Object.entries(nextEngine).some(([k, v]) => k !== 'Stock' && v);
+      if (!anyNonStock) nextEngine.Stock = true;
+
+      return { ...prev, engine: nextEngine };
+    });
+  };
+
+  const getSelectedKeys = (obj) => Object.entries(obj).filter(([, v]) => v).map(([k]) => k);
+
+  const buildModsPayload = () => {
+    const engineSelected = getSelectedKeys(mods.engine);
+    const ecuSelected = getSelectedKeys(mods.ecu);
+    const drivetrainSelected = getSelectedKeys(mods.drivetrain);
+    const suspensionSelected = getSelectedKeys(mods.suspension);
+    const aeroSelected = getSelectedKeys(mods.aero);
+
+    const structuredMods = {
+      engine: engineSelected.length ? engineSelected : ['Stock'],
+      ecu: ecuSelected.length ? ecuSelected : ['Stock'],
+      drivetrain: drivetrainSelected.length ? drivetrainSelected : ['Stock'],
+      suspension: suspensionSelected.length ? suspensionSelected : ['Stock'],
+      aero: aeroSelected.length ? aeroSelected : ['Stock'],
+      tire: tire || '',
+    };
+
+    const engineText = [
+      `Engine: ${structuredMods.engine.join(', ')}`,
+      `ECU: ${structuredMods.ecu.join(', ')}`,
+      `Drivetrain: ${structuredMods.drivetrain.join(', ')}`,
+    ].join(' | ');
+
+    const suspensionText = [
+      `Suspension: ${structuredMods.suspension.join(', ')}`,
+      structuredMods.tire ? `Tire: ${structuredMods.tire}` : '',
+    ].filter(Boolean).join(' | ');
+
+    const aeroText = `Aero: ${structuredMods.aero.join(', ')}`;
+
+    return {
+      structuredMods,
+      engineMod: engineText,
+      suspensionMod: suspensionText,
+      aeroMod: aeroText,
+    };
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    console.log('Submitting form...');
     setLoading(true);
+    setProgress(10);
     setError('');
     setResult(null);
 
+    // Simulate progress
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(timer);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 800);
+
     try {
+      console.log('Building payload...');
+      const { structuredMods, engineMod, suspensionMod, aeroMod } = buildModsPayload();
+      console.log('Payload built:', { engineMod });
+      
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, carModel, engineMod, suspensionMod, aeroMod }),
+        body: JSON.stringify({
+          url,
+          carModel,
+          engineMod,
+          suspensionMod,
+          aeroMod,
+          mods: structuredMods,
+          tire,
+        }),
       });
+
+      clearInterval(timer);
+      setProgress(100);
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
       
       setResult(data);
 
-      // Update leaderboard with new result
+      // Post new entry to Sheets API
+      const summary = Array.isArray(data.driving_feedback) 
+        ? data.driving_feedback.join('\n') 
+        : data.driving_feedback;
+
       const newEntry = {
-        rank: leaderboard.length + 1, // Simple append for POC
         name: userName || data.channel_name || "Anonymous",
         car: carModel || data.car_model,
         time: data.estimated_lap_time,
         level: data.driver_level,
         url: url,
-        mods: data.detected_mods ? data.detected_mods.join(', ') : (engineMod + ' ' + suspensionMod + ' ' + aeroMod)
+        mods: data.detected_mods
+          ? data.detected_mods.join(', ')
+          : [engineMod, suspensionMod, aeroMod].filter(Boolean).join(' | '),
+        summary: summary || ''
       };
-      // Sort by time (simplified string sort for now, ideally convert to ms)
-      const newLeaderboard = [...leaderboard, newEntry].sort((a, b) => a.time.localeCompare(b.time));
+
+      await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEntry)
+      });
       
-      // Re-assign ranks
-      newLeaderboard.forEach((entry, index) => entry.rank = index + 1);
-      
-      setLeaderboard(newLeaderboard);
+      // Reload leaderboard to get fresh sort from backend
+      const refreshRes = await fetch('/api/leaderboard');
+      const freshLeaderboard = await refreshRes.json();
+      if (Array.isArray(freshLeaderboard)) {
+        setLeaderboard(freshLeaderboard);
+      } else {
+        console.warn('Leaderboard refresh did not return an array:', freshLeaderboard);
+      }
 
     } catch (err) {
+      console.error('Submit error:', err);
+      clearInterval(timer);
       setError(err.message);
     } finally {
       setLoading(false);
+      // Reset progress after a short delay so user sees 100%
+      setTimeout(() => setProgress(0), 1000);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
     }
   };
 
@@ -70,7 +242,7 @@ export default function Home() {
 
       <main className="main-grid">
         <section className="left-panel">
-          <form onSubmit={handleSubmit} className="input-group">
+          <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleKeyDown} className="input-group">
             <input
               type="text"
               placeholder="Driver Name (e.g. The Stig)"
@@ -86,39 +258,117 @@ export default function Home() {
               required
               className="input-field"
             />
-          <input
-            type="text"
-            placeholder="Engine Mods (e.g. Stock, Supercharged)"
-            value={engineMod}
-            onChange={(e) => setEngineMod(e.target.value)}
-            className="input-field"
-          />
-          <input
-            type="text"
-            placeholder="Suspension Mods (e.g. Ohlins, JRZ)"
-            value={suspensionMod}
-            onChange={(e) => setSuspensionMod(e.target.value)}
-            className="input-field"
-          />
-          <input
-            type="text"
-            placeholder="Aero Mods (e.g. Wing, Splitter)"
-            value={aeroMod}
-            onChange={(e) => setAeroMod(e.target.value)}
-            className="input-field"
-          />
-          <input
-            type="text"
-            placeholder="Paste YouTube Link (e.g., https://youtu.be/...)"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            required
-            className="input-field url-input"
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? 'Analyzing...' : 'Analyze Lap'}
-          </button>
-        </form>
+
+            <input
+              type="text"
+              placeholder="Paste YouTube Link (e.g., https://youtu.be/...)"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
+              className="input-field url-input"
+            />
+
+            <input
+              type="text"
+              placeholder="Tire (e.g. RE-71RS, A052)"
+              value={tire}
+              onChange={(e) => setTire(e.target.value)}
+              className="input-field"
+            />
+
+            <fieldset className="mod-group">
+              <legend>Engine</legend>
+              <div className="mods-grid">
+                {Object.keys(mods.engine).map((label) => (
+                  <label key={label} className="mod-option">
+                    <input
+                      type="checkbox"
+                      checked={mods.engine[label]}
+                      onChange={() => toggleEngine(label)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mod-group">
+              <legend>ECU</legend>
+              <div className="mods-grid">
+                {Object.keys(mods.ecu).map((label) => (
+                  <label key={label} className="mod-option">
+                    <input
+                      type="checkbox"
+                      checked={mods.ecu[label]}
+                      onChange={() => setSingleChoice('ecu', label)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mod-group">
+              <legend>Drivetrain</legend>
+              <div className="mods-grid">
+                {Object.keys(mods.drivetrain).map((label) => (
+                  <label key={label} className="mod-option">
+                    <input
+                      type="checkbox"
+                      checked={mods.drivetrain[label]}
+                      onChange={() => setSingleChoice('drivetrain', label)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mod-group">
+              <legend>Suspension</legend>
+              <div className="mods-grid">
+                {Object.keys(mods.suspension).map((label) => (
+                  <label key={label} className="mod-option">
+                    <input
+                      type="checkbox"
+                      checked={mods.suspension[label]}
+                      onChange={() => setSingleChoice('suspension', label)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mod-group">
+              <legend>Aero</legend>
+              <div className="mods-grid">
+                {Object.keys(mods.aero).map((label) => (
+                  <label key={label} className="mod-option">
+                    <input
+                      type="checkbox"
+                      checked={mods.aero[label]}
+                      onChange={() => setSingleChoice('aero', label)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn">
+              {loading ? (
+                <div className="progress-container">
+                  <span>Analyzing... {progress}%</span>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                  </div>
+                </div>
+              ) : (
+                'Analyze Lap'
+              )}
+            </button>
+          </form>
 
         {error && <div className="error">{error}</div>}
 
@@ -138,15 +388,25 @@ export default function Home() {
                 <div className="section">
                   <h3>Car & Mods</h3>
                   <p><strong>Model:</strong> {result.car_model}</p>
-                  <ul>
-                    {result.detected_mods?.map((mod, i) => <li key={i}>{mod}</li>)}
-                  </ul>
+                  {Array.isArray(result.detected_mods) && result.detected_mods.length > 0 ? (
+                    <ul>
+                      {result.detected_mods.map((mod, i) => <li key={i}>{mod}</li>)}
+                    </ul>
+                  ) : null}
                 </div>
               </div>
 
               <div className="section feedback">
-                <h3>Driving Analysis (Level: {result.driver_level}/10)</h3>
-                <p>{result.driving_feedback}</p>
+                <h3>Driving Analysis (Score: {result.driver_level}/100)</h3>
+                {Array.isArray(result.driving_feedback) ? (
+                  <ul>
+                    {result.driving_feedback.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>{result.driving_feedback}</p>
+                )}
               </div>
             </div>
           )}
@@ -196,8 +456,18 @@ export default function Home() {
         .input-group { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
         .input-field { padding: 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; width: 100%; box-sizing: border-box; }
         .url-input { border-color: #ff3e00; }
+
+        .mod-group { border: 1px solid #eee; border-radius: 8px; padding: 1rem; }
+        .mod-group legend { padding: 0 0.5rem; font-weight: 600; color: #666; }
+        .mods-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+        .mod-option { display: flex; gap: 0.5rem; align-items: center; font-size: 0.95rem; }
         button { padding: 1rem 1.5rem; background: #000; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1rem; align-self: center; width: 50%; }
-        button:disabled { opacity: 0.6; }
+        button:disabled { opacity: 0.8; cursor: not-allowed; }
+        
+        .progress-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+        .progress-bar { width: 100%; height: 6px; background: #444; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #00e676; transition: width 0.3s ease; }
+        
         .error { color: red; padding: 1rem; background: #fff0f0; border-radius: 4px; }
         .result-card { border: 1px solid #eee; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
@@ -238,6 +508,7 @@ export default function Home() {
         
         @media (max-width: 768px) {
           .main-grid { grid-template-columns: 1fr; }
+          .mods-grid { grid-template-columns: 1fr; }
         }
       `}</style>
     </div>

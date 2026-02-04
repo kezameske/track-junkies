@@ -1,0 +1,96 @@
+import { google } from 'googleapis';
+
+// Helper to get authenticated Sheets client
+async function getSheetsClient() {
+  const serviceAccount = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccount) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing in environment variables');
+  }
+
+  const credentials = JSON.parse(serviceAccount);
+  
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  return google.sheets({ version: 'v4', auth });
+}
+
+export default async function handler(req, res) {
+  const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
+  const SHEET_NAME = 'Leaderboard'; // Ensure this sheet exists!
+  
+  if (!SPREADSHEET_ID) {
+    return res.status(500).json({ error: 'Server misconfigured: GOOGLE_SHEET_ID missing' });
+  }
+
+  try {
+    const sheets = await getSheetsClient();
+
+    if (req.method === 'GET') {
+      // READ LEADERBOARD
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A2:G1000`, // A to G covers 7 columns (0-6)
+      });
+
+      const rows = response.data.values || [];
+      
+      // Deduplicate: Map(Name+Car -> Entry)
+      const bestRuns = new Map();
+
+      rows.forEach((row) => {
+        const entry = {
+          rank: 0,
+          name: row[0] || 'Anonymous',
+          car: row[1] || 'Unknown',
+          time: row[2] || '00:00.0',
+          level: row[3] || '0',
+          url: row[4] || '',
+          mods: row[5] || '',
+          summary: row[6] || ''
+        };
+
+        const key = `${entry.name.trim()}|${entry.car.trim()}`.toLowerCase();
+        // Strategy: Overwrite with latest entry (assume sheet is chronological append)
+        bestRuns.set(key, entry);
+      });
+
+      const leaderboard = Array.from(bestRuns.values());
+
+      // Sort by time (simple string sort for MM:SS.ms)
+      leaderboard.sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: true }));
+
+      // Re-assign ranks after sort
+      leaderboard.forEach((entry, i) => entry.rank = i + 1);
+
+      return res.status(200).json(leaderboard);
+    } 
+    
+    else if (req.method === 'POST') {
+      // APPEND NEW ENTRY
+      const { name, car, time, level, url, mods, summary } = req.body;
+
+      if (!time) {
+        return res.status(400).json({ error: 'Missing lap time' });
+      }
+
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A:G`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[name, car, time, level, url, mods, summary || '']],
+        },
+      });
+
+      return res.status(200).json({ message: 'Success' });
+    } else {
+      res.status(405).json({ error: 'Method not allowed' });
+    }
+  } catch (error) {
+    console.error('Google Sheets API Error:', error);
+    res.status(500).json({ error: 'Failed to sync with leaderboard', details: error.message });
+  }
+}

@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { url, carModel, engineMod, suspensionMod, aeroMod } = req.body;
+  const { url, carModel, engineMod, suspensionMod, aeroMod, mods, tire } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
@@ -36,23 +36,38 @@ export default async function handler(req, res) {
       console.warn("Failed to fetch YouTube oEmbed data:", err);
     }
 
-    // Use gemini-1.5-pro-latest (or similar available model)
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+    // Use gemini-2.0-flash-exp (or gemini-1.5-flash)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
     // Read prompt file
     const promptPath = path.join(process.cwd(), 'prompt.md');
     let systemPrompt = fs.readFileSync(promptPath, 'utf8');
 
+    const getModsLine = (label, value) => {
+      if (!value) return `- **${label}**: Unknown`;
+      if (Array.isArray(value)) return `- **${label}**: ${value.join(', ') || 'Unknown'}`;
+      return `- **${label}**: ${String(value)}`;
+    };
+
+    const structured = mods && typeof mods === 'object' ? mods : null;
+    const tireValue = (structured && typeof structured.tire === 'string') ? structured.tire : tire;
+
     // Inject user-provided car details into the prompt
     const vehicleDetails = `
-    \n### User-Provided Vehicle Info:
-    - **Car Model**: ${carModel || 'Unknown'}
-    - **Engine Mods**: ${engineMod || 'Unknown'}
-    - **Suspension Mods**: ${suspensionMod || 'Unknown'}
-    - **Aero Mods**: ${aeroMod || 'Unknown'}
-    - **YouTube Channel**: ${channelName}
-    \nUse this info to accurately assess the vehicle's potential capabilities vs actual lap time.
-    `;
+\n### User-Provided Vehicle Info:
+- **Car Model**: ${carModel || 'Unknown'}
+${getModsLine('Engine', structured?.engine) }
+${getModsLine('ECU', structured?.ecu) }
+${getModsLine('Drivetrain', structured?.drivetrain) }
+${getModsLine('Suspension', structured?.suspension) }
+${getModsLine('Aero', structured?.aero) }
+${getModsLine('Tire', tireValue) }
+- **Legacy Engine Mods**: ${engineMod || 'Unknown'}
+- **Legacy Suspension Mods**: ${suspensionMod || 'Unknown'}
+- **Legacy Aero Mods**: ${aeroMod || 'Unknown'}
+- **YouTube Channel**: ${channelName}
+\nUse this info to accurately assess the vehicle's potential capabilities vs actual lap time.
+`;
     systemPrompt += vehicleDetails;
 
     // Construct parts
