@@ -1,10 +1,79 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
-    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+@import "tailwindcss";
+
+@theme {
+  --color-racing-bg: #0A0E14;
+  --color-racing-card: #151922;
+  --color-racing-surface: #1D2330;
+  --color-racing-cyan: #00F5FF;
+  --color-racing-blue: #0099FF;
+  --color-racing-red: #FF0055;
+
+  --font-heading: "Rajdhani", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --shadow-cyan-glow: 0 0 30px rgba(0, 245, 255, 0.5);
+  --shadow-cyan-glow-sm: 0 0 15px rgba(0, 245, 255, 0.3);
+  --shadow-cyan-glow-lg: 0 0 50px rgba(0, 245, 255, 0.4);
+  --shadow-blue-glow: 0 0 30px rgba(0, 153, 255, 0.4);
+  --shadow-red-glow: 0 0 20px rgba(255, 0, 85, 0.4);
+
+  --animate-fade-in: fade-in 0.4s ease-out;
+  --animate-pop-in: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --animate-spin-slow: spin-slow 2s linear infinite;
+  --animate-spin-reverse: spin-reverse 1.5s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  @keyframes fade-in {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pop-in {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes spin-slow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes spin-reverse {
+    0% { transform: rotate(360deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
 
-* {
-  box-sizing: border-box;
+/* Base styles */
+body {
+  background-color: var(--color-racing-bg);
+  color: #e5e7eb;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-racing-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Utility class for gradient text */
+.text-gradient-cyan {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(to right, var(--color-racing-cyan), var(--color-racing-blue), #a855f7);
 }

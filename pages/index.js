@@ -1,4 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import Head from 'next/head';
+import Header from '../components/layout/Header';
+import ResultCard from '../components/results/ResultCard';
+import AnalysisActions from '../components/results/AnalysisActions';
+import SetupForm from '../components/setup/SetupForm';
+import SetupInputs from '../components/setup/SetupInputs';
+import ModGroup from '../components/setup/ModGroup';
+import Leaderboard from '../components/leaderboard/Leaderboard';
+import LeaderboardTable from '../components/leaderboard/LeaderboardTable';
+import LatestAnalysis from '../components/leaderboard/LatestAnalysis';
+import LoadingOverlay from '../components/ui/LoadingOverlay';
+import Modal from '../components/ui/Modal';
+import ErrorMessage from '../components/ui/ErrorMessage';
 
 export default function Home() {
   const [url, setUrl] = useState('');
@@ -40,7 +53,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
-  
+
   // Simulated Leaderboard State
   const [leaderboard, setLeaderboard] = useState([]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -189,7 +202,7 @@ export default function Home() {
       console.log('Building payload...');
       const { structuredMods, engineMod, suspensionMod, aeroMod } = buildModsPayload();
       console.log('Payload built:', { engineMod });
-      
+
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,13 +222,13 @@ export default function Home() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
-      
+
       setResult(data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       // Post new entry to Sheets API
-      const summary = Array.isArray(data.driving_feedback) 
-        ? data.driving_feedback.join('\n') 
+      const summary = Array.isArray(data.driving_feedback)
+        ? data.driving_feedback.join('\n')
         : data.driving_feedback;
 
       const newEntry = {
@@ -297,669 +310,89 @@ export default function Home() {
     }
   };
 
+  const handleInputChange = (field, value) => {
+    const setters = { userName: setUserName, carModel: setCarModel, url: setUrl, tire: setTire };
+    setters[field]?.(value);
+  };
+
   return (
-    <div className={`container ${loading ? 'locked' : ''}`}>
-      {loading && (
-        <div className="loading-overlay" role="status" aria-busy="true">
-          <div className="spinner-container">
-            <div className="spinner"></div>
-            <p>Analyzing lap telemetry...</p>
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-            </div>
-          </div>
-        </div>
-      )}
+    <>
+      <Head>
+        <title>Track Junkies — AI Lap Time Estimator</title>
+        <meta name="description" content="AI-powered lap time estimator for Buttonwillow Raceway 13CW" />
+      </Head>
 
-      {selectedEntry && (
-        <div className="modal-overlay" onClick={() => setSelectedEntry(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Run Details</h3>
-              <button className="modal-close" onClick={() => setSelectedEntry(null)}>Close</button>
-            </div>
-            <div className="modal-section">
-              <div className="modal-label">Mods</div>
-              <div className="modal-value">{selectedEntry.mods || 'None listed'}</div>
-            </div>
-            <div className="modal-section">
-              <div className="modal-label">AI Feedback</div>
-              {selectedEntry.summary ? (
-                <ul>
-                  {selectedEntry.summary.split('\n').filter(Boolean).map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="modal-value">No feedback available.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className={`max-w-[1200px] mx-auto px-4 py-8 font-body ${loading ? 'select-none' : ''}`}>
+        {loading && <LoadingOverlay progress={progress} />}
+        <Modal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
 
-      <header>
-        <h1>Track Junkies 🏁</h1>
-        <p>AI-Powered Lap Time Estimator (Buttonwillow 13CW)</p>
-      </header>
+        <Header />
 
-      <main className="main-grid" aria-busy={loading} aria-disabled={loading}>
-        <section className="left-panel">
-          {error && <div className="error">{error}</div>}
-
-          <div className="result-area">
-            {loading ? (
-              <div className="result-card loading">
-                <h2>Analyzing Lap...</h2>
-                <p className="empty-text">Estimating lap time and driver score. This may take a moment.</p>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-            ) : result ? (
-              <div className="result-card fade-in">
-              <div className="score-header">
-                <h2>Driver Score</h2>
-                <div className="score-circle">
-                  <span className="score-value">{result.driver_level}</span>
-                  <span className="score-max">/100</span>
-                </div>
-              </div>
-
-              <div className="feedback-section">
-                <h3>AI Coach Feedback</h3>
-                {Array.isArray(result.driving_feedback) ? (
-                  <ul className="feedback-list">
-                    {result.driving_feedback.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{result.driving_feedback}</p>
-                )}
-              </div>
-            </div>
-            ) : (
-              <div className="result-card empty">
-                <h2>Driver Score</h2>
-                <p className="empty-text">Run an analysis to see your driver score and coaching feedback.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="cta-row">
-            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn">
-              {loading ? 'Analyzing...' : 'Analyze Lap'}
-            </button>
-            <button type="button" onClick={() => setSetupOpen((v) => !v)} disabled={loading} className="setup-btn">
-              {setupOpen ? 'Hide Setup' : 'Edit Run Setup'}
-            </button>
-          </div>
-
-          <details className="setup" open={setupOpen} onToggle={(e) => setSetupOpen(e.currentTarget.open)}>
-            <summary>
-              <span className="setup-title">Run Setup</span>
-              <span className="setup-meta">
-                {carModel ? carModel : 'Car'}{tire ? ` • ${tire}` : ''}{url ? ' • Link set' : ''}
-              </span>
-            </summary>
-            <form onSubmit={(e) => e.preventDefault()} onKeyDown={handleKeyDown} className="input-group">
-            <input
-              type="text"
-              placeholder="Driver Name (e.g. The Stig)"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              className="input-field"
-              disabled={loading}
-            />
-            <input
-              type="text"
-              placeholder="Car Model (e.g. S2000, M3)"
-              value={carModel}
-              onChange={(e) => setCarModel(e.target.value)}
-              required
-              className="input-field"
-              disabled={loading}
+        <main
+          className="grid grid-cols-1 lg:grid-cols-[minmax(440px,1fr)_minmax(560px,1.35fr)] gap-8 items-start"
+          aria-busy={loading}
+          aria-disabled={loading}
+        >
+          {/* Left panel */}
+          <section className="flex flex-col gap-4 min-w-0">
+            <ErrorMessage message={error} />
+            <ResultCard result={result} loading={loading} progress={progress} />
+            <AnalysisActions
+              loading={loading}
+              setupOpen={setupOpen}
+              onAnalyze={handleSubmit}
+              onToggleSetup={() => setSetupOpen((v) => !v)}
             />
 
-            <input
-              type="text"
-              placeholder="Paste YouTube Link (e.g., https://youtu.be/...)"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-              className="input-field url-input"
-              disabled={loading}
-            />
+            <SetupForm open={setupOpen} onToggle={setSetupOpen} carModel={carModel} tire={tire} url={url}>
+              <form
+                onSubmit={(e) => e.preventDefault()}
+                onKeyDown={handleKeyDown}
+                className="flex flex-col gap-4 p-5"
+              >
+                <SetupInputs
+                  userName={userName}
+                  carModel={carModel}
+                  url={url}
+                  tire={tire}
+                  loading={loading}
+                  onChange={handleInputChange}
+                />
 
-            <input
-              type="text"
-              placeholder="Tire (e.g. RE-71RS, A052)"
-              value={tire}
-              onChange={(e) => setTire(e.target.value)}
-              className="input-field"
-              disabled={loading}
-            />
+                <ModGroup legend="Engine" options={mods.engine} loading={loading} onToggle={toggleEngine} />
+                <ModGroup legend="ECU" options={mods.ecu} loading={loading} onToggle={(l) => setSingleChoice('ecu', l)} />
+                <ModGroup legend="Drivetrain" options={mods.drivetrain} loading={loading} onToggle={(l) => setSingleChoice('drivetrain', l)} />
+                <ModGroup legend="Suspension" options={mods.suspension} loading={loading} onToggle={(l) => setSingleChoice('suspension', l)} />
+                <ModGroup legend="Aero" options={mods.aero} loading={loading} onToggle={(l) => setSingleChoice('aero', l)} />
 
-            <fieldset className="mod-group" disabled={loading}>
-              <legend>Engine</legend>
-              <div className="mods-grid">
-                {Object.keys(mods.engine).map((label) => (
-                  <label key={label} className="mod-option">
-                    <input
-                      type="checkbox"
-                      checked={mods.engine[label]}
-                      onChange={() => toggleEngine(label)}
-                      disabled={loading}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="w-full py-3.5 rounded-xl font-heading font-bold text-sm uppercase tracking-widest text-white
+                             bg-gradient-to-r from-racing-cyan to-racing-blue
+                             hover:shadow-cyan-glow-sm transition-all duration-300
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Analyzing...' : 'Analyze Lap'}
+                </button>
+              </form>
+            </SetupForm>
+          </section>
 
-            <fieldset className="mod-group" disabled={loading}>
-              <legend>ECU</legend>
-              <div className="mods-grid">
-                {Object.keys(mods.ecu).map((label) => (
-                  <label key={label} className="mod-option">
-                    <input
-                      type="checkbox"
-                      checked={mods.ecu[label]}
-                      onChange={() => setSingleChoice('ecu', label)}
-                      disabled={loading}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mod-group" disabled={loading}>
-              <legend>Drivetrain</legend>
-              <div className="mods-grid">
-                {Object.keys(mods.drivetrain).map((label) => (
-                  <label key={label} className="mod-option">
-                    <input
-                      type="checkbox"
-                      checked={mods.drivetrain[label]}
-                      onChange={() => setSingleChoice('drivetrain', label)}
-                      disabled={loading}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mod-group" disabled={loading}>
-              <legend>Suspension</legend>
-              <div className="mods-grid">
-                {Object.keys(mods.suspension).map((label) => (
-                  <label key={label} className="mod-option">
-                    <input
-                      type="checkbox"
-                      checked={mods.suspension[label]}
-                      onChange={() => setSingleChoice('suspension', label)}
-                      disabled={loading}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mod-group" disabled={loading}>
-              <legend>Aero</legend>
-              <div className="mods-grid">
-                {Object.keys(mods.aero).map((label) => (
-                  <label key={label} className="mod-option">
-                    <input
-                      type="checkbox"
-                      checked={mods.aero[label]}
-                      onChange={() => setSingleChoice('aero', label)}
-                      disabled={loading}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-
-            <button type="button" onClick={handleSubmit} disabled={loading} className="analyze-btn secondary">
-              {loading ? 'Analyzing...' : 'Analyze Lap'}
-            </button>
-          </form>
-          </details>
-        </section>
-
-        <aside className="right-panel">
-          <div className="leaderboard">
-            <h2>🏆 Leaderboard</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Time</th>
-                  <th>Score</th>
-                  <th>Video</th>
-                  <th>Driver</th>
-                  <th>Car</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.map((entry, i) => (
-                  <tr key={i} className={entry.name === userName ? 'highlight' : ''}>
-                    <td>{entry.rank}</td>
-                    <td className="time-cell">
-                      <button
-                        className="time-button"
-                        type="button"
-                        onClick={() => setSelectedEntry(entry)}
-                      >
-                        {entry.time}
-                      </button>
-                    </td>
-                    <td className="score-cell">{entry.level}</td>
-                    <td>
-                      {entry.url ? (
-                        <a href={entry.url} target="_blank" rel="noopener noreferrer" className="video-link">
-                          YouTube
-                        </a>
-                      ) : (
-                        <span className="muted">-</span>
-                      )}
-                    </td>
-                    <td className="driver-cell">
-                      <div className="driver-name">{entry.name}</div>
-                    </td>
-                    <td className="car-cell">
-                      <div className="car-name">{entry.car}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {result && (
-              <div className="leaderboard-summary">
-                <h3>Latest Analysis</h3>
-                <div className="summary-score">Driver Score: {result.driver_level}/100</div>
-                {Array.isArray(result.driving_feedback) ? (
-                  <ul>
-                    {result.driving_feedback.slice(0, 3).map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>{result.driving_feedback}</p>
-                )}
-              </div>
-            )}
-          </div>
-        </aside>
-      </main>
-
-      <style jsx>{`
-        /* Visual Redesign Variables */
-        :global(body) {
-          background-color: #f5f7fa;
-          background-image: radial-gradient(#e1e4e8 1px, transparent 1px);
-          background-size: 20px 20px;
-          color: #2d3436;
-        }
-
-        .container { 
-          max-width: 1200px; 
-          margin: 0 auto; 
-          padding: 2rem; 
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        
-        header { 
-          text-align: center; 
-          margin-bottom: 3rem; 
-          padding-bottom: 2rem;
-          border-bottom: 1px solid rgba(0,0,0,0.05);
-        }
-        
-        h1 { 
-          margin: 0; 
-          color: #2d3436; 
-          font-weight: 800; 
-          letter-spacing: -1px; 
-          font-size: 2.5rem;
-        }
-        h1 span { color: #ff3e00; }
-        
-        p { color: #636e72; font-size: 1.1rem; }
-
-        .main-grid {
-          display: grid;
-          grid-template-columns: minmax(440px, 1fr) minmax(560px, 1.35fr);
-          gap: 2rem;
-          align-items: start;
-        }
-
-        .left-panel { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-        .right-panel { position: sticky; top: 1.5rem; align-self: start; }
-
-        .result-area { display: flex; flex-direction: column; gap: 1rem; }
-
-        .cta-row {
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 0.75rem;
-          align-items: center;
-        }
-
-        .setup-btn {
-          padding: 1.1rem 1.25rem;
-          border-radius: 8px;
-          border: 1px solid #dfe6e9;
-          background: #fff;
-          font-weight: 800;
-          color: #2d3436;
-          cursor: pointer;
-        }
-        .setup-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-
-        .setup {
-          background: #fff;
-          border: 1px solid #dfe6e9;
-          border-radius: 12px;
-          /* overflow: hidden; removed to prevent clipping */
-        }
-        .setup summary {
-          list-style: none;
-          cursor: pointer;
-          padding: 1rem 1.25rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          gap: 1rem;
-          user-select: none;
-          border-bottom: 1px solid rgba(0,0,0,0.04);
-        }
-        .setup summary::-webkit-details-marker { display: none; }
-        .setup-title { font-weight: 900; color: #2d3436; }
-        .setup-meta { color: #636e72; font-size: 0.95rem; }
-
-        .input-group { display: flex; flex-direction: column; gap: 1rem; padding: 1rem 1.25rem 1.25rem; width: 100%; box-sizing: border-box; }
-        .input-field {
-          width: 100%;
-          padding: 1rem 1.1rem;
-          border: 1px solid #dfe6e9;
-          border-radius: 10px;
-          font-size: 1.05rem;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-          box-sizing: border-box;
-        }
-        .input-field:focus {
-          outline: none;
-          border-color: #ff3e00;
-          box-shadow: 0 0 0 4px rgba(255, 62, 0, 0.12);
-        }
-        .url-input { border-color: rgba(255, 62, 0, 0.6); }
-
-        .analyze-btn.secondary {
-          padding: 1rem 1.25rem;
-          font-size: 1rem;
-          font-weight: 900;
-          border-radius: 10px;
-        }
-
-        /* Form Styling */
-        
-        .mod-group { 
-          border: 1px solid #dfe6e9; 
-          border-radius: 8px; /* Slightly tighter radius */
-          padding: 0.8rem 1rem; /* Compact padding */
-          background: #fff;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .mod-group legend { 
-          padding: 0 0.5rem; 
-          font-weight: 700; 
-          color: #636e72; /* Softer legend color */
-          font-size: 0.75rem; 
-          letter-spacing: 0.5px;
-        }
-        .mods-grid { 
-          display: grid; 
-          grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 Columns for compactness */
-          gap: 0.5rem; /* Tighter gap */
-        }
-        .mod-option { 
-          display: flex; 
-          gap: 0.4rem; 
-          align-items: center; 
-          font-size: 0.85rem; /* Smaller text */
-          white-space: nowrap; /* Prevent wrapping */
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        
-        .analyze-btn {
-          padding: 1.2rem 2rem;
-          background: linear-gradient(135deg, #ff3e00 0%, #d63000 100%);
-          color: #fff;
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 1.2rem;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          width: 100%;
-          box-shadow: 0 4px 15px rgba(255, 62, 0, 0.4);
-          transition: all 0.2s ease;
-        }
-        .analyze-btn:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(255, 62, 0, 0.6);
-          filter: brightness(1.1);
-        }
-        .analyze-btn:active:not(:disabled) { transform: translateY(1px); }
-
-        /* Locked / Loading */
-        .loading-overlay {
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(8px);
-          animation: fadeIn 0.3s ease;
-        }
-        .spinner {
-          border-width: 3px;
-          border-color: #eee;
-          border-top-color: #ff3e00;
-        }
-        
-        /* Results */
-        .result-card {
-          border: none;
-          background: #fff;
-          border-radius: 16px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-          padding: 3rem 2rem;
-          overflow: hidden;
-          position: relative;
-        }
-        .result-card.loading {
-          border: 1px dashed rgba(255, 62, 0, 0.4);
-          background: #fff7f2;
-        }
-        .result-card::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0; height: 6px;
-          background: linear-gradient(90deg, #ff3e00, #ff7600);
-        }
-        
-        .score-circle {
-          width: 140px;
-          height: 140px;
-          background: #fff; /* White center */
-          border: 8px solid #ff3e00; /* Thick ring */
-          border-radius: 50%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-          animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .score-value { 
-          color: #2d3436;
-          font-size: 3.5rem; 
-          font-weight: 800; 
-          line-height: 1; 
-        }
-        .score-max { 
-          color: #b2bec3;
-          font-size: 1rem; 
-          font-weight: 600; 
-        }
-        
-        .feedback-section h3 { 
-          color: #2d3436; 
-          font-size: 1.4rem; 
-          margin-bottom: 1.5rem;
-          border-color: #ff3e00;
-        }
-        .feedback-list li {
-          background: #f9f9f9;
-          padding: 1rem;
-          border-radius: 8px;
-          border-left: 3px solid #ff3e00;
-          margin-bottom: 1rem;
-          font-size: 1.05rem;
-        }
-
-        /* Leaderboard */
-        .leaderboard {
-          background: #fff;
-          padding: 0;
-          border-radius: 12px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-          overflow: visible;
-        }
-        .leaderboard h2 {
-          background: #2d3436;
-          color: #fff;
-          margin: 0;
-          padding: 1.5rem;
-          font-size: 1.2rem;
-          letter-spacing: 0.5px;
-          border: none;
-        }
-        table { font-size: 0.95rem; width: 100%; table-layout: fixed; }
-        th { background: #f1f2f6; color: #636e72; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
-        th, td { overflow: hidden; text-overflow: ellipsis; }
-        th:nth-child(2), td:nth-child(2) { width: 90px; } /* Time */
-        th:nth-child(3), td:nth-child(3) { width: 60px; } /* Score */
-        th:nth-child(4), td:nth-child(4) { width: 70px; } /* Video */
-        th:nth-child(5), td:nth-child(5) { width: 25%; } /* Driver */
-        th:nth-child(6), td:nth-child(6) { width: 25%; } /* Car */
-        tr:hover { background-color: #fafafa; }
-        .highlight { background-color: #fff3e0 !important; transition: background 0.5s ease; }
-        .driver-link { font-weight: 500; color: #2d3436; }
-        .time-cell { font-family: 'Roboto Mono', monospace; font-weight: 700; color: #ff3e00; }
-        .time-button {
-          background: none;
-          border: none;
-          color: #ff3e00;
-          font: inherit;
-          cursor: pointer;
-          padding: 0;
-          border-bottom: 1px dashed rgba(255, 62, 0, 0.45);
-        }
-        .time-button:hover { color: #d63000; }
-
-        .driver-cell { max-width: 100%; white-space: normal; word-break: break-word; }
-        .driver-name { font-weight: 800; color: #2d3436; }
-        .car-cell { max-width: 100%; white-space: normal; word-break: break-word; }
-        .car-name { font-size: 0.9rem; color: #636e72; }
-        .score-cell { font-weight: 800; color: #2d3436; }
-        .video-link { font-weight: 800; color: #ff3e00; text-decoration: none; }
-        .video-link:hover { text-decoration: underline; }
-        .muted { color: #b2bec3; }
-
-        .leaderboard-summary {
-          padding: 1.25rem 1.5rem 1.5rem;
-          border-top: 1px solid #f1f2f6;
-        }
-        .leaderboard-summary h3 {
-          margin: 0 0 0.75rem;
-          font-size: 1rem;
-          color: #2d3436;
-        }
-        .summary-score {
-          font-weight: 800;
-          color: #ff3e00;
-          margin-bottom: 0.75rem;
-        }
-        .leaderboard-summary ul {
-          margin: 0;
-          padding-left: 1rem;
-        }
-        .leaderboard-summary li {
-          margin-bottom: 0.5rem;
-          font-size: 0.9rem;
-          color: #2d3436;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .mod-group, .analyze-btn, .result-card, .score-circle, .loading-overlay {
-            animation: none !important;
-            transition: none !important;
-            transform: none !important;
-          }
-        }
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: rgba(0,0,0,0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2000;
-          padding: 1.5rem;
-        }
-        .modal-card {
-          background: #fff;
-          border-radius: 12px;
-          padding: 1.5rem;
-          max-width: 520px;
-          width: 100%;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 1rem;
-        }
-        .modal-close {
-          background: #f1f2f6;
-          border: none;
-          padding: 0.4rem 0.8rem;
-          border-radius: 6px;
-          cursor: pointer;
-        }
-        .modal-section { margin-bottom: 1rem; }
-        .modal-label { font-weight: 800; color: #2d3436; margin-bottom: 0.35rem; }
-        .modal-value { color: #2d3436; }
-        
-        @media (max-width: 768px) {
-          .main-grid { grid-template-columns: 1fr; }
-          .right-panel { position: static; }
-          .mods-grid { grid-template-columns: repeat(2, 1fr); } /* 2 cols on mobile */
-        }
-      `}</style>
-    </div>
+          {/* Right panel */}
+          <aside className="sticky top-6 self-start">
+            <Leaderboard>
+              <LeaderboardTable
+                entries={leaderboard}
+                userName={userName}
+                onSelectEntry={setSelectedEntry}
+              />
+              <LatestAnalysis result={result} />
+            </Leaderboard>
+          </aside>
+        </main>
+      </div>
+    </>
   );
 }

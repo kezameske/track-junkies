@@ -88,12 +88,7 @@ ${getModsLine('Tire', tireValue) }
     // Construct parts
     const promptParts = [
       systemPrompt,
-      {
-        fileData: {
-          mimeType: "video/mp4",
-          fileUri: normalizedUrl
-        }
-      }
+      `Video URL: ${normalizedUrl}`,
     ];
 
     console.log(`Analyzing ${normalizedUrl}...`);
